@@ -3,7 +3,7 @@ const synaptic = require('synaptic'),
   csvReader = require('./csv_reader'),
   moment = require('moment');
 
-const lstmNetwork = new synaptic.Architect.LSTM(3, 6, 1);
+const lstmNetwork = new synaptic.Architect.LSTM(3, 6, 6, 1);
 const trainer = new synaptic.Trainer(lstmNetwork);
 
 const sigmoid = t => {
@@ -31,14 +31,15 @@ const sigmoid = t => {
 // }
 // graph([values]);
 csvReader.readCsv().then(rows => {
-  const btcPrice = rows.map(r => r[1]);
-  const orders = rows.map(r => r[2]);
-  const x = rows.map(r => moment.unix(parseInt(r[0])).format("YYYY-MM-DD HH:mm"));
   // graph([btcPrice], x);
-  const trainingSet = rows.map((row, index) => {
+  const trainRows = rows.slice(0, rows.length / 2);
+  const testRows = rows.slice(rows.length / 2);
+  const x = testRows.map(r => moment.unix(parseInt(r[0])).format("YYYY-MM-DD HH:mm"));
+  
+  const trainingSet = trainRows.map((row, index) => {
     let output = 0;
-    if (rows[index + 1])
-      output = parseFloat(rows[index + 1][1]) / 1000; // el precio
+    if (trainRows[index + 1])
+      output = parseFloat(trainRows[index + 1][1]) / 1000; // el precio
     else
       output = parseFloat(row[1]) / 1000;
     return {
@@ -49,12 +50,13 @@ csvReader.readCsv().then(rows => {
   trainer.train(trainingSet, {
     error: .0000005,
   	log: 100,
-  	iterations: 100000,
+  	iterations: 1000,
   	// shuffle: true,
   	rate: 0.003
   });
-  const values = trainingSet.map(e => {
-    return lstmNetwork.activate([e.input[0], e.input[1], e.input[2]])[0] * 1000;
+  const values = testRows.map(row => {
+    return lstmNetwork.activate([Math.sin(parseFloat(row[0])), parseFloat(row[1] / 1000), parseFloat(row[2]) / 1000])[0] * 1000;
   });
+  const btcPrice = testRows.map(r => r[1]);
   graph([values, btcPrice], x);
 });
