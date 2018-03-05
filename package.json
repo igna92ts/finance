@@ -13,6 +13,7 @@
     "blessed": "^0.1.81",
     "blessed-contrib": "^4.8.5",
     "fast-csv": "^2.4.1",
+    "jsonfile": "^4.0.0",
     "moment": "^2.20.1",
     "neataptic": "^1.4.7",
     "plotly": "^1.0.6",
