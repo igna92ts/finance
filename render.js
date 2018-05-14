@@ -12,7 +12,7 @@ module.exports = (valuesArr, xValues = null) => {
   
   const graphOptions = {filename: "date-axes", fileopt: "overwrite"};
   plotly.plot(data, graphOptions, (err, msg) => {
-    console.log(msg);
+    console.log(err, msg);
   });
 };
 // SE PUEDE STREAMEAR, BUSCAR STREAMING API

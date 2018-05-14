@@ -11,7 +11,7 @@ if (!fs.existsSync(fileDir)) {
 
 module.exports = jsonString => {
   return new Promise((resolve, reject) => {
-    jsonfile.writeFile(`${fileDir}/${moment().format()}.json`, jsonString, err => {
+    jsonfile.writeFile(`${fileDir}/current.json`, jsonString, err => {
       if(err) return reject(err);
       return resolve();
     })
