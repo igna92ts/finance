@@ -17,6 +17,12 @@
     "moment": "^2.20.1",
     "neataptic": "^1.4.7",
     "plotly": "^1.0.6",
-    "synaptic": "^1.1.4"
+    "request": "^2.85.0",
+    "socket.io": "^2.1.0",
+    "synaptic": "^1.1.4",
+    "ws": "^5.1.1"
+  },
+  "devDependencies": {
+    "jest": "^22.4.4"
   }
 }
