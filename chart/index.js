@@ -5,7 +5,7 @@ const http = require('http'),
 exports.setGraphingServer = () => {
   return new Promise((resolve, reject) => {
     const app = http.createServer(handler)
-    app.listen(8080);// <---- change the port
+    app.listen(8080);
     const io = socketio(app);
 
     function handler (req, res) {
@@ -19,9 +19,6 @@ exports.setGraphingServer = () => {
         res.end(data);
       });
     }
-    // io.on('connection', socket => {
-    //   socket.emit('data', { hello: 'world' });
-    // });
     
     return resolve(data => io.emit('data', data));
   });

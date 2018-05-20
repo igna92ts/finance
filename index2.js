@@ -1,6 +1,5 @@
 const synaptic = require('synaptic'),
   chart = require('./chart'),
-  csvReader = require('./csv_reader'),
   jsondb = require('./jsondb'),
   moment = require('moment'),
   binance = require('./binance');
@@ -100,7 +99,7 @@ const runProcess = () => {
         const lastTrade = trainingRows[trainingRows.length - 1];
         const input = [Math.sin(lastTrade.time), Math.log10(lastTrade.price), Math.log10(lastTrade.volume), Math.log10(movingAvg(trainingRows, 1)), Math.log10(movingAvg(trainingRows, 10))];
         const result = lstmNetwork.activate(input)[0];
-          
+        
         trainingSet.shift();
         trainingSet.push({
           input,
@@ -131,5 +130,6 @@ module.exports = {
   getTrainingSet,
   round,
   movingAvg,
-  diffTimes
-}
+  diffTimes,
+  sigmoid
+};
