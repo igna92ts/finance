@@ -1,0 +1,4 @@
+que cuando arma el training set se fije en varios horizontes y diga si comprar o no directamente y cuanto comprar dependiendo de la variacion
+que cada 1000 transacciones vuelva a correr el entrenamiento
+que guarde las transacciones que pasan durante el entrenamimento
+testear potencial ganancia sobre ganancia real

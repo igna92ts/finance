@@ -1,7 +1,10 @@
 const request = require('request'),
-  webSocket = require('ws');
+  webSocket = require('ws'),
+  moment = require('moment'),
+  { diffTimes } = require('../helpers');
+
 const key = '8tc4fJ1ddM2VmnbFzTk3f7hXsrehnT8wP7u6EdIoVq7gyXWiL852TP1wnKp0qaGM';
-const symbol = 'eosbtc';
+const symbol = 'trxbtc';
 
 // let BTCPRICE = 0;
 // const ws = new webSocket('wss://stream.binance.com:9443/ws/btcusdt@ticker');
@@ -15,7 +18,7 @@ const symbol = 'eosbtc';
 exports.watchTrades = callback => {
   exports.fetchBTCPrice().then(btcPrice => {
     
-    const tradesWs = new webSocket(`wss://stream.binance.com:9443/ws/${symbol}@trade`);
+    const tradesWs = new webSocket(`wss://stream.binance.com:9443/ws/${symbol}@aggTrade`);
     const btcPriceWs = new webSocket('wss://stream.binance.com:9443/ws/btcusdt@ticker');
     
     btcPriceWs.on('open', () => {
@@ -59,26 +62,37 @@ exports.fetchBTCPrice = () => {
 
 const formatTransaction = (transaction, btcPrice) => {
   return {
-    time: transaction.time,
-    price: parseFloat(transaction.price) * btcPrice,
-    volume: parseFloat(transaction.qty)
+    time: transaction.T,
+    price: parseFloat(transaction.p) * btcPrice,
+    volume: parseFloat(transaction.q)
   };
 };
 
-exports.fetchTrades = () => {
+exports.fetchTrades = (accumulator = [], endTime = 0) => {
+  let params = '';
+  if (accumulator.length > 0) {
+    const startTime = moment(endTime).subtract(20, 'minutes').valueOf();
+    params = `&startTime=${startTime}&endTime=${endTime}`;
+  }
   return new Promise((resolve, reject) => {
     request.get({
-      url: `https://api.binance.com/api/v1/historicalTrades?symbol=${symbol.toUpperCase()}`,
+      url: `https://api.binance.com/api/v1/aggTrades?symbol=${symbol.toUpperCase()}${params}`,
       headers: {
         'X-MBX-APIKEY': key
       },
       json: true
     }, (err, res, body) => {
-      if (err) return reject(err);
-      else
-        return resolve(
-          exports.fetchBTCPrice().then(btcPrice => body.map(t => formatTransaction(t, btcPrice)))
-        );
+      // esto es inclusivo en el ultimo, hay que sacarlo
+      return resolve(exports.fetchBTCPrice().then(btcPrice => {
+        const reversed = body.reverse();
+        const merged = [...accumulator, ...reversed.map(t => formatTransaction(t, btcPrice))];
+        if (err) return reject(err);
+        else if (merged.length < 3000)
+          return exports.fetchTrades(merged, reversed[reversed.length - 1].T);
+        else {
+          return merged.reverse();
+        }
+      }));
     });
   });
 };

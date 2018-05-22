@@ -7,24 +7,29 @@
     <body>
         <div id="graph"></div>
         <script>
-        	function rand() {
-              return Math.random();
-            }
-            
-            Plotly.plot('graph', [{
-              y: [],
-              mode: 'lines', 
-              line: { width: 4 }
-            }, {
-              y: [],
-              mode: 'lines',
-              line: { width: 4 }
-            }]);
+          
+          const accumulator = [];
+          Plotly.plot('graph', [{
+            y: [],
+            mode: 'lines', 
+            line: { width: 4 }
+          }, {
+            y: [],
+            mode: 'lines',
+            line: { width: 4 }
+          }]);
         	
         	const socket = io('https://finance-igna92ts.c9users.io/');
             socket.on('data', data => {
+              const newPrice = accumulator[0];
+              if (accumulator.length === 120) {
+                accumulator.shift();
+                accumulator.push(data.predictedPrice);
+              } else {
+                accumulator.push(data.predictedPrice);
+              }
               Plotly.extendTraces('graph', {
-                y: [[data.predictedPrice], [data.realPrice]]
+                y: [[data.realPrice],  [newPrice || data.realPrice]]
               }, [0, 1]);
             });
         </script>

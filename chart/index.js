@@ -19,7 +19,13 @@ exports.setGraphingServer = () => {
         res.end(data);
       });
     }
-    
-    return resolve(data => io.emit('data', data));
+    return resolve(graphData => {
+      setInterval(() => {
+        io.emit('data', {
+          realPrice: graphData.realPrice,
+          predictedPrice: graphData.predictedPrice
+        });
+      }, 1000);
+    });
   });
 };
