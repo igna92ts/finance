@@ -22,7 +22,7 @@
         	const socket = io('https://finance-igna92ts.c9users.io/');
             socket.on('data', data => {
               const newPrice = accumulator[0];
-              if (accumulator.length === 120) {
+              if (accumulator.length === 60) {
                 accumulator.shift();
                 accumulator.push(data.predictedPrice);
               } else {

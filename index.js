@@ -9,9 +9,9 @@ const lstmNetwork = new synaptic.Architect.LSTM(5, 5, 1);
 const trainer = new synaptic.Trainer(lstmNetwork);
 
 const TEST_ITERATIONS = 20000;
-const LIVE_ITERATIONS = 10;
-const PREDICTION_TIME = 120;
-const LIVE_TRAINING_SIZE = 15000;
+const LIVE_ITERATIONS = 50;
+const PREDICTION_TIME = 60;
+const LIVE_TRAINING_SIZE = 10000;
 
 const movingAvg = (rows, avgTime, tag = 'price') => {
   const avgRows = [];
@@ -93,7 +93,7 @@ const runProcess = () => {
       
       trainer.train(trainingSet, {
         error: .00000000005,
-      	log: 1,
+      	log: 1000,
       	iterations: TEST_ITERATIONS,
       	rate: 0.03
       });
@@ -103,8 +103,11 @@ const runProcess = () => {
       };
       sendGraphData(graphData);
       binance.watchTrades(trade => {
-        const input = [Math.sin(trade.time), Math.log10(trade.price), Math.log10(trade.volume), Math.log10(movingAvg(trainingRows, 1)), Math.log10(movingAvg(trainingRows, 2))];
-        const result = lstmNetwork.activate(input)[0];
+        let result = trade.price;
+        for (let i = 0; i < PREDICTION_TIME; i++) {
+          const input = [Math.sin(trade.time + i), Math.log10(Math.pow(10, logit(result))), Math.log10(movingAvg(trainingRows, 2, 'volume')), Math.log10(movingAvg(trainingRows, 1)), Math.log10(movingAvg(trainingRows, 2))];
+          result = lstmNetwork.activate(input)[0];
+        }
         
         const lastRelevantTradeIndex = getTradeIndexNSecondsAgo(trade.time, trainingRows, PREDICTION_TIME);
         if (trainingSet.length > LIVE_TRAINING_SIZE)
