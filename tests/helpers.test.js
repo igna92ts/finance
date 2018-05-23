@@ -5,14 +5,12 @@ describe('helper functions', () => {
   describe('roundTime', () => {
     test('rounds {date} parameter to the lowest duration parameter', () => {
       const roundedTime = helpers.roundTime(1526757034193, 1, 'seconds', 'floor');
-      expect(roundedTime.milliseconds()).toBe(0);
-      expect(roundedTime.seconds()).toBe(34);
+      expect(roundedTime).toBe(1526757034000);
     });
     
     test('rounds {date} parameter to the highest duration parameter', () => {
       const roundedTime = helpers.roundTime(1526757034193, 1, 'seconds', 'ceil');
-      expect(roundedTime.milliseconds()).toBe(0);
-      expect(roundedTime.seconds()).toBe(35);
+      expect(roundedTime).toBe(1526757035000);
     });
   });
   
@@ -21,7 +19,7 @@ describe('helper functions', () => {
       const initialTime = moment().valueOf();
       const nextTime = moment().add(2, 'minutes').valueOf();
       const timeDiff = helpers.diffTimes(nextTime, initialTime);
-      expect(timeDiff).toBe(2);
+      expect(parseInt(timeDiff)).toBe(2);
     });
     
     test('return values are memoized', () => {

@@ -25,7 +25,7 @@ const logit = t => -Math.log(1 / t - 1);
 
 const roundTime = (date, unit, amount, method) => {
   const duration = moment.duration(unit, amount);
-  return moment(Math[method]((+date) / (+duration)) * (+duration)); 
+  return moment(Math[method]((+date) / (+duration)) * (+duration)).valueOf(); 
 }
 
 module.exports = {

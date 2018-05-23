@@ -5,12 +5,12 @@ const synaptic = require('synaptic'),
   binance = require('./binance'),
   { diffTimes, roundTime, memoize, logit, sigmoid } = require('./helpers');
 
-const lstmNetwork = new synaptic.Architect.LSTM(5, 5, 1);
+const lstmNetwork = new synaptic.Architect.LSTM(2, 5, 1);
 const trainer = new synaptic.Trainer(lstmNetwork);
 
 const TEST_ITERATIONS = 20000;
 const LIVE_ITERATIONS = 10;
-const PREDICTION_TIME = 120;
+const PREDICTION_TIME = 1;
 const LIVE_TRAINING_SIZE = 15000;
 
 const movingAvg = (rows, avgTime, tag = 'price') => {
@@ -30,17 +30,26 @@ const movingAvg = (rows, avgTime, tag = 'price') => {
 
 const getPricesPerSecond = historicalTrades => {
   let initialTime = roundTime(historicalTrades[0].time, 1, 'seconds', 'floor');
-  const pricesPerSecond = [historicalTrades[0].price];
+  const pricesPerSecond = [{
+    price: historicalTrades[0].price,
+    time: initialTime
+  }];
   historicalTrades.forEach(t => {
-    const roundedTime = roundTime(t.time, 1, 'seconds', 'floor')
+    const roundedTime = roundTime(t.time, 1, 'seconds', 'floor');
     const timeDifference = moment(roundedTime).diff(initialTime, 'seconds');
-    const latestPrice = pricesPerSecond[pricesPerSecond.length - 1];
+    const latestPrice = pricesPerSecond[pricesPerSecond.length - 1].price;
     if (timeDifference > 1) {
       for (let i = 0; i < timeDifference - 1; i++) {
-        pricesPerSecond.push(latestPrice)
+        pricesPerSecond.push({
+          price: latestPrice,
+          time: initialTime + i * 1000 // 1 second
+        })
       }
       initialTime = roundedTime;
-      pricesPerSecond.push(t.price);
+      pricesPerSecond.push({
+        price: t.price,
+        time: roundedTime
+      });
     }
   });
   return pricesPerSecond;
@@ -71,11 +80,10 @@ const getTradeIndexNSecondsAgo = (finishTime, trades, seconds) => {
 const getTrainingSet = rows => {
   return rows.reduce((resultSet, row, index) => {
     let output = 0;
-    const futurePrice = getPriceInNSeconds(row.time, rows, PREDICTION_TIME);
-    if (futurePrice) {
-      output = sigmoid(Math.log10(futurePrice)); // el precio
+    if (rows.length > index + 1) {
+      output = sigmoid(Math.log10(rows[index + 1].price)); // el precio
       const response = {
-        input: [Math.sin(row.time), Math.log10(row.price), Math.log10(row.volume), Math.log10(movingAvg(rows.slice(0, index + 1), 1)), Math.log10(movingAvg(rows.slice(0, index + 1), 2))],
+        input: [Math.sin(row.time), Math.log10(row.price)],
         output: [output]
       }
       resultSet.push(response);
@@ -85,52 +93,75 @@ const getTrainingSet = rows => {
   }, []);
 };
 
+const addPriceSeconds = (pricesPerSecond, trade) => {
+  const lastPrice = pricesPerSecond[pricesPerSecond.length - 1];
+  const roundedTime = roundTime(trade.time, 1, 'seconds', 'floor');
+  const timeDifference = moment(roundedTime).diff(lastPrice.time, 'seconds');
+  const newSeconds = [];
+  if (timeDifference > 1) {
+    for (let i = 0; i < timeDifference - 1; i++) {
+      newSeconds.push({
+        price: lastPrice.price,
+        time: lastPrice.time + i * 1000 // 1 second
+      });
+    }
+    newSeconds.push({
+      price: trade.price,
+      time: roundedTime
+    });
+  }
+  return newSeconds;
+};
+
 const runProcess = () => {
   chart.setGraphingServer().then(sendGraphData => {
     binance.fetchTrades().then(trainingRows => {
-      const trainingSet = getTrainingSet(trainingRows);
-      // const pricesPerSecond = getPricesPerSecond(trainingRows);
+      
+      let pricesPerSecond = getPricesPerSecond(trainingRows);
+      const trainingSet = getTrainingSet(pricesPerSecond);
       
       trainer.train(trainingSet, {
         error: .00000000005,
-      	log: 1,
+      	log: 1000,
       	iterations: TEST_ITERATIONS,
-      	rate: 0.03
+      	rate: 0.03,
+      	shuffle: true
       });
-      const graphData = {
-        realPrice: trainingRows[trainingRows.length - 1].price,
-        predictedPrice: 0
-      };
-      sendGraphData(graphData);
       binance.watchTrades(trade => {
-        const input = [Math.sin(trade.time), Math.log10(trade.price), Math.log10(trade.volume), Math.log10(movingAvg(trainingRows, 1)), Math.log10(movingAvg(trainingRows, 2))];
-        const result = lstmNetwork.activate(input)[0];
+        const newSeconds = addPriceSeconds(pricesPerSecond, trade);
         
-        const lastRelevantTradeIndex = getTradeIndexNSecondsAgo(trade.time, trainingRows, PREDICTION_TIME);
-        if (trainingSet.length > LIVE_TRAINING_SIZE)
-          trainingSet.shift();
-        trainingSet.push({
-          input: [
-            Math.sin(trainingRows[lastRelevantTradeIndex].time),
-            Math.log10(trainingRows[lastRelevantTradeIndex].price),
-            Math.log10(trainingRows[lastRelevantTradeIndex].volume),
-            Math.log10(movingAvg(trainingRows.slice(0, lastRelevantTradeIndex + 1), 1)),  // ESTOS 2 ESTAN MAL TIENEN QUE SER DESDE EL lastRelevantTrade
-            Math.log10(movingAvg(trainingRows.slice(0, lastRelevantTradeIndex + 1), 2))
-          ],
-          output: [sigmoid(Math.log10(trade.price))]
-        });
-        
-        if (trainingRows.length > LIVE_TRAINING_SIZE)
-          trainingRows.shift();
-        trainingRows.push(trade);
+        if (newSeconds.length > 0) {
+          const start = newSeconds[0];
+          const input = [Math.sin(start.time), Math.log10(start.price)];
+          let result = lstmNetwork.activate(input)[0];
+          const predictions = [Math.pow(10, logit(result))];
+          for (let i = 1; i < newSeconds.length; i++) {
+            result = lstmNetwork.activate([Math.sin(start.time + 1000 * i), Math.log10(Math.pow(10, logit(result)))])[0]
+            predictions.push(Math.pow(10, logit(result)));
+          }
           
-        trainer.train(trainingSet, {
-          error: .00000000005,
-        	iterations: LIVE_ITERATIONS,
-        	rate: 0.03
-        });
-        graphData.realPrice = trade.price;
-        graphData.predictedPrice = Math.pow(10, logit(result));
+          for (let i = 0; i < newSeconds.length - 1; i ++) {
+            if (trainingSet.length > LIVE_TRAINING_SIZE)
+                trainingSet.shift();
+              
+            trainingSet.push({
+              input: [
+                Math.sin(newSeconds[i].time),
+                Math.log10(newSeconds[i].price)
+              ],
+              output: [sigmoid(Math.log10(newSeconds[i + 1].price))]
+            });
+          }
+            
+          trainer.train(trainingSet, {
+            error: .00000000005,
+          	iterations: LIVE_ITERATIONS,
+          	rate: 0.03
+          });
+          const temp = [...pricesPerSecond, ...newSeconds];
+          pricesPerSecond = temp.slice(temp.length - LIVE_TRAINING_SIZE);
+          sendGraphData(newSeconds, predictions);
+        }
       });
     });
   });

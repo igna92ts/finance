@@ -7,8 +7,7 @@
     <body>
         <div id="graph"></div>
         <script>
-          
-          const accumulator = [];
+
           Plotly.plot('graph', [{
             y: [],
             mode: 'lines', 
@@ -21,16 +20,11 @@
         	
         	const socket = io('https://finance-igna92ts.c9users.io/');
             socket.on('data', data => {
-              const newPrice = accumulator[0];
-              if (accumulator.length === 120) {
-                accumulator.shift();
-                accumulator.push(data.predictedPrice);
-              } else {
-                accumulator.push(data.predictedPrice);
+              for (let i = 0; i < data.realPrices.length; i++) {
+                Plotly.extendTraces('graph', {
+                  y: [[data.realPrices[i].price],  [data.predictedPrices[i]]]
+                }, [0, 1]);
               }
-              Plotly.extendTraces('graph', {
-                y: [[data.realPrice],  [newPrice || data.realPrice]]
-              }, [0, 1]);
             });
         </script>
     </body>
