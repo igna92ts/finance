@@ -20,9 +20,9 @@
         	
         	const socket = io('https://finance-igna92ts.c9users.io/');
             socket.on('data', data => {
-              for (let i = 0; i < data.realPrices.length; i++) {
+              for (let i = 0; i < data.predictedPrices.length; i++) {
                 Plotly.extendTraces('graph', {
-                  y: [[data.realPrices[i].price],  [data.predictedPrices[i]]]
+                  y: [[data.realPrices[i] ? data.realPrices[i].price : 0],  [data.predictedPrices[i]]]
                 }, [0, 1]);
               }
             });

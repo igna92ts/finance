@@ -2,3 +2,14 @@ que cuando arma el training set se fije en varios horizontes y diga si comprar o
 que cada 1000 transacciones vuelva a correr el entrenamiento
 que guarde las transacciones que pasan durante el entrenamimento
 testear potencial ganancia sobre ganancia real
+
+
+sacarle los moving avgs o differenciarlos tambien
+sacarle el trend
+
+http://kourentzes.com/forecasting/2016/12/28/can-neural-networks-predict-trended-time-series/
+https://machinelearningmastery.com/time-series-trends-in-python/
+
+
+
+https://stackoverflow.com/questions/46901371/how-to-deal-with-multi-step-time-series-forecasting-in-multivariate-lstm-in-kera?utm_medium=organic&utm_source=google_rich_qa&utm_campaign=google_rich_qa

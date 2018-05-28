@@ -19,10 +19,11 @@ exports.setGraphingServer = () => {
         res.end(data);
       });
     }
-    return resolve((realPrices, predictedPrices) => {
+    return resolve((realPrices, predictedPrices, WTF) => {
       io.emit('data', {
         realPrices,
-        predictedPrices
+        predictedPrices,
+        WTF
       });
     });
   });
