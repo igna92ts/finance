@@ -87,7 +87,7 @@ exports.fetchTrades = (accumulator = [], endTime = 0) => {
         const reversed = body.reverse();
         const merged = [...accumulator, ...reversed.map(t => formatTransaction(t, btcPrice))];
         if (err) return reject(err);
-        else if (merged.length < 10000)
+        else if (merged.length < 20000)
           return exports.fetchTrades(merged, reversed[reversed.length - 1].T);
         else {
           return merged.reverse();

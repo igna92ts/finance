@@ -118,19 +118,25 @@ const runProcess = () => {
           	rate: 0.03
           });
           
-          const start = newTimesteps[newTimesteps.length - 1];
+          const start = newTimesteps[0];
           const input = [Math.sin(start.time), Math.log10(start.price)];
           predictionNetwork = synaptic.Network.fromJSON(lstmNetwork.toJSON());
           let result = predictionNetwork.activate(input)[0];
-          const predictions = [Math.pow(10, logit(result))];
-          for (let i = 1; i < PREDICTION_TIME + newTimesteps.length; i++) {
+          const predictions = [{
+            price: Math.pow(10, logit(result)),
+            time: start.time + TIME_MS
+          }];
+          for (let i = 1; i < PREDICTION_TIME + newTimesteps.length - 1; i++) {  // - 1 por el segundo extra que predice la red
             result = predictionNetwork.activate([Math.sin(start.time + TIME_MS * i), Math.log10(Math.pow(10, logit(result)))])[0]
-            predictions.push(Math.pow(10, logit(result)));
+            predictions.push({
+              price: Math.pow(10, logit(result)),
+              time: start.time + TIME_MS * i + TIME_MS
+            });
           }
           
           const temp = [...pricesPerTimestep, ...newTimesteps];
           pricesPerTimestep = temp.slice(temp.length - LIVE_TRAINING_SIZE);
-          sendGraphData(newTimesteps, predictions.slice(PREDICTION_TIME));
+          sendGraphData(newTimesteps, predictions.slice(PREDICTION_TIME - 1)); // -1 por lo mismo que arriba
         }
       });
     });
