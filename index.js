@@ -5,14 +5,14 @@ const synaptic = require('synaptic'),
   binance = require('./binance'),
   { diffTimes, roundTime, memoize, logit, sigmoid } = require('./helpers');
 
-const lstmNetwork = new synaptic.Architect.LSTM(2, 2, 1);
-let predictionNetwork = new synaptic.Architect.LSTM(2, 2, 1);
+const lstmNetwork = new synaptic.Architect.LSTM(1, 6, 6, 1);
+let predictionNetwork = new synaptic.Architect.LSTM(1, 6, 6, 1);
 const trainer = new synaptic.Trainer(lstmNetwork);
 
-const TEST_ITERATIONS = 5000;
-const LIVE_ITERATIONS = 10;
+const TEST_ITERATIONS = 20;
+const LIVE_ITERATIONS = 1;
 const PREDICTION_TIME = 60;
-const LIVE_TRAINING_SIZE = 50000;
+const LIVE_TRAINING_SIZE = 300000;
 
 const TIME_MS = 1000;
 const TIME_CONSTRAINT = 'seconds';
@@ -50,7 +50,7 @@ const getTrainingSet = rows => {
     if (rows.length > index + 1) {
       output = sigmoid(Math.log10(rows[index + 1].price)); // el precio
       const response = {
-        input: [Math.sin(row.time), Math.log10(row.price)],
+        input: [Math.log10(row.price)],
         output: [output]
       }
       resultSet.push(response);
@@ -89,7 +89,7 @@ const runProcess = () => {
       
       trainer.train(trainingSet, {
         error: .00000000005,
-      	log: 1000,
+      	log: 1,
       	iterations: TEST_ITERATIONS,
       	rate: 0.03,
       	shuffle: true
@@ -104,7 +104,6 @@ const runProcess = () => {
               
             trainingSet.push({
               input: [
-                Math.sin(newTimesteps[i].time),
                 Math.log10(newTimesteps[i].price)
               ],
               output: [sigmoid(Math.log10(newTimesteps[i + 1].price))]
@@ -114,12 +113,13 @@ const runProcess = () => {
           trainer.train(trainingSet, {
             error: .00000000005,
           	iterations: LIVE_ITERATIONS,
-          	log: 10,
-          	rate: 0.03
+          	log: 1,
+          	rate: 0.03,
+          	shuffle: true
           });
           
           const start = newTimesteps[0];
-          const input = [Math.sin(start.time), Math.log10(start.price)];
+          const input = [Math.log10(start.price)];
           predictionNetwork = synaptic.Network.fromJSON(lstmNetwork.toJSON());
           let result = predictionNetwork.activate(input)[0];
           const predictions = [{
@@ -127,7 +127,7 @@ const runProcess = () => {
             time: start.time + TIME_MS
           }];
           for (let i = 1; i < PREDICTION_TIME + newTimesteps.length - 1; i++) {  // - 1 por el segundo extra que predice la red
-            result = predictionNetwork.activate([Math.sin(start.time + TIME_MS * i), Math.log10(Math.pow(10, logit(result)))])[0]
+            result = predictionNetwork.activate([Math.log10(Math.pow(10, logit(result)))])[0]
             predictions.push({
               price: Math.pow(10, logit(result)),
               time: start.time + TIME_MS * i + TIME_MS

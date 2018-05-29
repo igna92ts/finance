@@ -4,7 +4,7 @@ const request = require('request'),
   { diffTimes } = require('../helpers');
 
 const key = '8tc4fJ1ddM2VmnbFzTk3f7hXsrehnT8wP7u6EdIoVq7gyXWiL852TP1wnKp0qaGM';
-const symbol = 'trxbtc';
+const symbol = 'cvcbtc';
 
 // let BTCPRICE = 0;
 // const ws = new webSocket('wss://stream.binance.com:9443/ws/btcusdt@ticker');
@@ -82,12 +82,12 @@ exports.fetchTrades = (accumulator = [], endTime = 0) => {
       },
       json: true
     }, (err, res, body) => {
-      // esto es inclusivo en el ultimo, hay que sacarlo
+      // cambiar por ultimas 24 horas
       return resolve(exports.fetchBTCPrice().then(btcPrice => {
         const reversed = body.reverse();
         const merged = [...accumulator, ...reversed.map(t => formatTransaction(t, btcPrice))];
         if (err) return reject(err);
-        else if (merged.length < 20000)
+        else if (merged.length < 5000)
           return exports.fetchTrades(merged, reversed[reversed.length - 1].T);
         else {
           return merged.reverse();
