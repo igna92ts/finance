@@ -31,7 +31,7 @@ exports.setGraphingServer = () => {
   });
 };
 
-exports.graphToImg = (...variadicTraces) => {
+exports.graphToImg = (label, ...variadicTraces) => {
   const traces = variadicTraces.map(rows => ({
     y: rows.map(r => r.price),
     x: rows.map((r, i) => i),
@@ -45,7 +45,7 @@ exports.graphToImg = (...variadicTraces) => {
   };
   plotly.getImage(figure, imgOptions, (error, imageStream) => {
     if (error) console.log(error);
-    const fileStream = fs.createWriteStream(`plot${Date.now()}.png`);
+    const fileStream = fs.createWriteStream(`plot${label || Date.now()}.png`);
     imageStream.pipe(fileStream);
   });
 };

@@ -75,16 +75,30 @@ const movingAvg = (trades, time) => {
   return temp.reduce((res, t) => res + t.price, 0) / temp.length;
 };
 
-const expMovingAvg = (trades, timeStepRange) => {
-  const k = 2 / (timeStepRange + 1);
-
+const expMovingAvg = (mArray, mRange) => {
+  const k = 2/(mRange + 1);
+  // first item is just the same as the first item in the input
+  emaArray = [mArray[0]];
+  // for the rest of the items, they are computed with the previous one
+  for (let i = 1; i < mArray.length; i++) {
+    emaArray.push({
+      price: mArray[i].price * k + emaArray[i - 1].price * (1 - k),
+      time: mArray[i].time
+    });
+  }
+  return emaArray;
 };
 
 const arima = async () => {
-  const tradeData = await fetchTrades(100); // newest is last
+  const tradeData = await fetchTrades(1000); // newest is last
   const detrended = differenceTrades(tradeData);
-  chart.graphToImg(tradeData);
-  chart.graphToImg(detrended);
+
+  chart.graphToImg('NORMAL', detrended);
+  chart.graphToImg('MA', detrended.map((t, i) => ({
+    price: movingAvg(detrended.slice(0, i + 1), 20),
+    time: t.time
+  })));
+  chart.graphToImg('EMA', expMovingAvg(detrended, 20));
 };
 
 try {
@@ -96,5 +110,6 @@ try {
 module.exports = {
   percentageDifference,
   movingAvg,
+  expMovingAvg,
   getPricesPerTimestep
 };
