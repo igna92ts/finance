@@ -2,7 +2,7 @@ const index = require('../index'),
   { sigmoid } = require('../helpers'),
   moment = require('moment');
 
-describe('index functions',() => {
+describe('index functions', () => {
   const trades = [
     {
       time: 1526760115692,
@@ -20,7 +20,6 @@ describe('index functions',() => {
       volume: 55.83
     }
   ];
-    
   describe('getPricesPerSecond', () => {
     test('creates an array with the price each second in between trades', () => {
       const pricesPerSecond = index.getPricesPerSecond(trades);
@@ -30,5 +29,4 @@ describe('index functions',() => {
       expect(pricesPerSecond.filter(p => p.price === 13.194765599999998).length).toBe(1);
     });
   });
-  
 });

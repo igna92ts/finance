@@ -1,5 +1,6 @@
 const binance = require('./binance'),
   moment = require('moment'),
+  chart = require('./chart'),
   { roundTime } = require('./helpers');
 
 const TIME_CONSTRAINT = 'seconds';
@@ -34,12 +35,14 @@ const getPricesPerTimestep = historicalTrades => {
   return pricesPerTimestep;
 };
 
-const fetchTrades = async () => {
-  const historicalTrades = await binance.fetchTrades();
+const fetchTrades = async amount => {
+  console.log('FETCHING TRADES');
+  const historicalTrades = await binance.fetchTrades(amount);
   return getPricesPerTimestep(historicalTrades);
 };
 
 const differenceTrades = trades => {
+  console.log('DIFFERENCING TRADES ', trades.length);
   return trades.reduce((res, t, index) => {
     if (index > 0) {
       res.push({
@@ -51,25 +54,47 @@ const differenceTrades = trades => {
   }, []);
 };
 
-const logTransform = trades => {
-  return trades.map(t => {
-    return {
-      price: Math.log10(t.price),
-      time: t.time
-    };
-  });
+const percentageDifference = trades => {
+  return trades.reduce((res, t, index) => {
+    if (index > 0) {
+      const difference = t.price - trades[index - 1].price;
+      const percent = (difference * 100) / trades[index - 1].price;
+      res.push({
+        price: percent,
+        time: t.time
+      });
+    }
+    return res;
+  }, []);
 };
 
-const exponentialSmooth = (currentY, lastPrediction) => {
-  // Yt-1
-  const alpha = 0.5;
-  const newPrediction = alpha * currentY + (1 - alpha) * lastPrediction;
+const movingAvg = (trades, time) => {
+  // time in seconds
+  const initialTime = trades[trades.length - 1].time;
+  const temp = trades.filter(t => moment(initialTime).diff(t.time, TIME_CONSTRAINT) < time);
+  return temp.reduce((res, t) => res + t.price, 0) / temp.length;
+};
+
+const expMovingAvg = (trades, timeStepRange) => {
+  const k = 2 / (timeStepRange + 1);
+
 };
 
 const arima = async () => {
-  const tradeData = await fetchTrades();
-  const L1 = tradeData[0].price;
-  const Y1 = tradeData[0].price;
-  const Y2 = tradeData[1].price;
-  const L2 = exponentialSmooth(Y2, L1); // Y3 predecido
+  const tradeData = await fetchTrades(100); // newest is last
+  const detrended = differenceTrades(tradeData);
+  chart.graphToImg(tradeData);
+  chart.graphToImg(detrended);
+};
+
+try {
+  arima();
+} catch (err) {
+  console.log(err);
+}
+
+module.exports = {
+  percentageDifference,
+  movingAvg,
+  getPricesPerTimestep
 };

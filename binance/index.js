@@ -4,7 +4,7 @@ const request = require('request'),
   { diffTimes } = require('../helpers');
 
 const key = '8tc4fJ1ddM2VmnbFzTk3f7hXsrehnT8wP7u6EdIoVq7gyXWiL852TP1wnKp0qaGM';
-const symbol = 'cvcbtc';
+const symbol = 'eosbtc';
 
 // let BTCPRICE = 0;
 // const ws = new webSocket('wss://stream.binance.com:9443/ws/btcusdt@ticker');
@@ -68,7 +68,7 @@ const formatTransaction = (transaction, btcPrice) => {
   };
 };
 
-exports.fetchTrades = (accumulator = [], endTime = 0) => {
+exports.fetchTrades = (amount, accumulator = [], endTime = 0) => {
   let params = '';
   if (accumulator.length > 0) {
     const startTime = moment(endTime).subtract(20, 'minutes').valueOf();
@@ -87,8 +87,8 @@ exports.fetchTrades = (accumulator = [], endTime = 0) => {
         const reversed = body.reverse();
         const merged = [...accumulator, ...reversed.map(t => formatTransaction(t, btcPrice))];
         if (err) return reject(err);
-        else if (merged.length < 5000)
-          return exports.fetchTrades(merged, reversed[reversed.length - 1].T);
+        else if (merged.length < amount)
+          return exports.fetchTrades(amount, merged, reversed[reversed.length - 1].T);
         else {
           return merged.reverse();
         }

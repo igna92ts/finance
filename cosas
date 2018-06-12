@@ -1,1 +1,12 @@
-using an AR or ARIMA model along with a dynamic bayes regression to check for prediction probability
+price variance (in percentage?) (differenced set, remove the first values)
+last N time variance averages
+last N time exp variance averages
+time of the day
+
+
+same variables for bitcoin
+
+same for ethereum
+
+genetic algorithms optimization
+tuning: number of horizons and distance, number of trees

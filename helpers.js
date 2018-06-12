@@ -1,21 +1,22 @@
 const moment = require('moment');
 
 const memoize = func => {
-  let memo = {};
-  let slice = Array.prototype.slice;
+  const memo = {};
+  const { slice } = Array.prototype;
 
   return function() {
-    let args = slice.call(arguments);
+    const args = slice.call(arguments);
 
-    if (args in memo)
+    if (args in memo) return memo[args];
+    else {
+      memo[args] = func.apply(this, args);
       return memo[args];
-    else
-      return (memo[args] = func.apply(this, args));
-  }
-}
+    }
+  };
+};
 
 const diffTimes = memoize((finish, oldtime) => {
-  return moment.duration(moment(finish).diff(moment(oldtime))).asMinutes()
+  return moment.duration(moment(finish).diff(moment(oldtime))).asMinutes();
 });
 
 const sigmoid = t => {
@@ -25,8 +26,8 @@ const logit = t => -Math.log(1 / t - 1);
 
 const roundTime = (date, unit, amount, method) => {
   const duration = moment.duration(unit, amount);
-  return moment(Math[method]((+date) / (+duration)) * (+duration)).valueOf(); 
-}
+  return moment(Math[method]((+date) / (+duration)) * (+duration)).valueOf();
+};
 
 module.exports = {
   memoize,
