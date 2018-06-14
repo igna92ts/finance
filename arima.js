@@ -1,3 +1,5 @@
+require('babel-polyfill');
+
 const binance = require('./binance'),
   moment = require('moment'),
   chart = require('./chart'),
@@ -70,20 +72,28 @@ const percentageDifference = trades => {
 
 const movingAvg = (trades, time) => {
   // time in seconds
-  const initialTime = trades[trades.length - 1].time;
-  const temp = trades.filter(t => moment(initialTime).diff(t.time, TIME_CONSTRAINT) < time);
-  return temp.reduce((res, t) => res + t.price, 0) / temp.length;
+  return trades.map((t, index) => {
+    let temp = 0;
+    for (let i = index; i > index - time; i--) {
+      if (i < 0) break;
+      temp += trades[i].price;
+    }
+    return {
+      ...t,
+      MA: temp / time
+    };
+  });
 };
 
 const expMovingAvg = (mArray, mRange) => {
-  const k = 2/(mRange + 1);
+  const k = 2 / (mRange + 1);
   // first item is just the same as the first item in the input
-  emaArray = [mArray[0]];
+  const emaArray = [{ ...mArray[0], EMA: mArray[0].price }];
   // for the rest of the items, they are computed with the previous one
   for (let i = 1; i < mArray.length; i++) {
     emaArray.push({
-      price: mArray[i].price * k + emaArray[i - 1].price * (1 - k),
-      time: mArray[i].time
+      ...mArray[i],
+      EMA: mArray[i].price * k + emaArray[i - 1].EMA * (1 - k)
     });
   }
   return emaArray;
@@ -92,13 +102,10 @@ const expMovingAvg = (mArray, mRange) => {
 const arima = async () => {
   const tradeData = await fetchTrades(1000); // newest is last
   const detrended = differenceTrades(tradeData);
-
-  chart.graphToImg('NORMAL', detrended);
-  chart.graphToImg('MA', detrended.map((t, i) => ({
-    price: movingAvg(detrended.slice(0, i + 1), 20),
-    time: t.time
-  })));
-  chart.graphToImg('EMA', expMovingAvg(detrended, 20));
+  const emaArray = expMovingAvg(detrended, 20);
+  const completeArr = movingAvg(emaArray, 20);
+  chart.graphToImg('MA', completeArr.map(e => e.MA));
+  chart.graphToImg('EMA', completeArr.map(e => e.EMA));
 };
 
 try {

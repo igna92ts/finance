@@ -33,7 +33,7 @@ exports.setGraphingServer = () => {
 
 exports.graphToImg = (label, ...variadicTraces) => {
   const traces = variadicTraces.map(rows => ({
-    y: rows.map(r => r.price),
+    y: rows,
     x: rows.map((r, i) => i),
     type: 'scatter'
   }));

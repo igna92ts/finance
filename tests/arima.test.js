@@ -27,26 +27,30 @@ describe('index functions', () => {
     });
   });
 
+  const averagingTrades = [
+    { price: 22.81 },
+    { price: 23.09 },
+    { price: 22.91 },
+    { price: 23.23 },
+    { price: 22.83 },
+    { price: 23.05 },
+    { price: 23.02 },
+    { price: 23.29 },
+    { price: 23.41 },
+    { price: 23.49 }
+  ];
+
   describe('movingAvg', () => {
     test('calculates the moving average n timesteps in the past', () => {
-      const avg = arima.movingAvg(trades, 380); // 377 es la cantidad de segundos entre trades
-      expect(avg).toBe((trades[0].price + trades[1].price + trades[2].price) / 3);
+      const avg = arima.movingAvg(averagingTrades, 9); // 377 es la cantidad de segundos entre trades
+      expect(avg[avg.length - 1].MA).toBe(23.14666666666666);
     });
   });
 
   describe('expMovingAvg', () => {
     test('calculates exp moving average for an N range period', () => {
-      const trades = [
-        { price: 22.81 },
-        { price: 23.09 },
-        { price: 22.91 },
-        { price: 23.23 },
-        { price: 22.83 },
-        { price: 23.05 },
-        { price: 23.02 }
-      ];
-      const expAvg = arima.expMovingAvg(trades, 9);
-      console.log(expAvg);
+      const expAvg = arima.expMovingAvg(averagingTrades, 9);
+      expect(expAvg[expAvg.length - 1].EMA).toBe(23.18152516096);
     });
   });
 });
