@@ -42,7 +42,7 @@ describe('index functions', () => {
 
   describe('movingAvg', () => {
     test('calculates the moving average n timesteps in the past', () => {
-      const avg = arima.movingAvg(averagingTrades, 9); // 377 es la cantidad de segundos entre trades
+      const avg = arima.movingAvg(averagingTrades, 9);
       expect(avg[avg.length - 1].MA).toBe(23.14666666666666);
     });
   });
@@ -51,6 +51,34 @@ describe('index functions', () => {
     test('calculates exp moving average for an N range period', () => {
       const expAvg = arima.expMovingAvg(averagingTrades, 9);
       expect(expAvg[expAvg.length - 1].EMA).toBe(23.18152516096);
+    });
+  });
+
+  describe('relStrIndex', () => {
+    test('calculates rel str index for an N range period', () => {
+      const trades = [
+        { realPrice: 44.34 },
+        { realPrice: 44.09 },
+        { realPrice: 44.15 },
+        { realPrice: 43.61 },
+        { realPrice: 44.33 },
+        { realPrice: 44.83 },
+        { realPrice: 45.10 },
+        { realPrice: 45.42 },
+        { realPrice: 45.84 },
+        { realPrice: 46.08 },
+        { realPrice: 45.89 },
+        { realPrice: 46.03 },
+        { realPrice: 45.61 },
+        { realPrice: 46.28 },
+        { realPrice: 46.00 },
+        { realPrice: 46.03 },
+        { realPrice: 46.41 },
+        { realPrice: 46.22 },
+        { realPrice: 45.64 },
+        { realPrice: 46.21 },
+      ];
+      const rsiArray = arima.relStrIndex(trades, 14);
     });
   });
 });

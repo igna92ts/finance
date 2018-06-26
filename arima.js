@@ -62,6 +62,7 @@ const percentageDifference = trades => {
       const difference = t.price - trades[index - 1].price;
       const percent = (difference * 100) / trades[index - 1].price;
       res.push({
+        realPrice: t.price,
         price: percent,
         time: t.time
       });
@@ -74,13 +75,17 @@ const movingAvg = (trades, time) => {
   // time in seconds
   return trades.map((t, index) => {
     let temp = 0;
+    let divider = time;
     for (let i = index; i > index - time; i--) {
-      if (i < 0) break;
+      if (i < 0) {
+        divider = index + 1;
+        break;
+      } else divider = time;
       temp += trades[i].price;
     }
     return {
       ...t,
-      MA: temp / time
+      MA: temp / divider
     };
   });
 };
@@ -99,13 +104,81 @@ const expMovingAvg = (mArray, mRange) => {
   return emaArray;
 };
 
+const diffNumbers = (num1, num2) => {
+  if (num1 > num2) return num1 - num2;
+  else return num2 - num1;
+};
+
+const relStrIndex = (trades, time) => {
+  const rsiArray = [];
+  let lastAvgGain = 0;
+  let lastAvgLoss = 0;
+  trades.forEach((t, index) => {
+    let tempGain = 0;
+    let tempLoss = 0;
+    if (index >= time) {
+      if (t.realPrice > trades[index - 1].realPrice) {
+        tempGain = diffNumbers(t.realPrice, trades[index - 1].realPrice);
+      } else {
+        tempLoss = diffNumbers(t.realPrice, trades[index - 1].realPrice);
+      }
+      lastAvgGain = (lastAvgGain * (time - 1) + tempGain) / time;
+      lastAvgLoss = (lastAvgLoss * (time - 1) + tempLoss) / time;
+    } else {
+      for (let i = index; i > index - time; i--) {
+        if (i - 1 < 0) break;
+        if (trades[i].realPrice > trades[i - 1].realPrice) {
+          tempGain += diffNumbers(trades[i].realPrice, trades[i - 1].realPrice);
+        } else {
+          tempLoss += diffNumbers(trades[i].realPrice, trades[i - 1].realPrice);
+        }
+      }
+      lastAvgGain = tempGain / time;
+      lastAvgLoss = tempLoss / time;
+    }
+    const firstRs = lastAvgGain / lastAvgLoss || 0;
+    const firstRsi = 100 - 100 / (1 + firstRs);
+    rsiArray.push({
+      ...t,
+      RSI: index < time ? 50 : firstRsi
+    });
+  });
+  return rsiArray;
+};
+
+const TRANSACTION_TIME = 5;
+const expectedAction = trades => {
+  // can be 
+  // selling or buying takes 10 seconds
+  // compro o vendo perdiendo 2% para vender rapido
+  // sumarle 0.1% del fee de binance
+  const trades = trades[0];
+  trades.map((t, index) => {
+    for (let i = 0; i < trades.length; i++) {
+      if (moment(trades[i].time).diff(t.time, 'seconds') > TRANSACTION_TIME && (diffNumbers(t.realPrice, trades[i].realPrice) * 100) / t.price > 3) {
+        // compra
+      }
+      if (moment(trades[i].time).diff(t.time, 'seconds') > TRANSACTION_TIME && (diffNumbers(t.realPrice, trades[i].realPrice) * 100) / t.price > 3) {
+        // compra
+      }
+    }
+  });
+  for ()
+};
+
 const arima = async () => {
-  const tradeData = await fetchTrades(1000); // newest is last
-  const detrended = differenceTrades(tradeData);
-  const emaArray = expMovingAvg(detrended, 20);
-  const completeArr = movingAvg(emaArray, 20);
+  const tradeData = await fetchTrades(100); // newest is last
+  const detrended = percentageDifference(tradeData);
+  const emaArray = expMovingAvg(detrended, 60);
+  const rsiArray = relStrIndex(emaArray, 60);
+  const completeArr = movingAvg(rsiArray, 60);
+
+  // este es el que me va a importar
   chart.graphToImg('MA', completeArr.map(e => e.MA));
+  chart.graphToImg('REAL', completeArr.map(e => e.realPrice));
+  chart.graphToImg('RSI', completeArr.map(e => e.RSI));
   chart.graphToImg('EMA', completeArr.map(e => e.EMA));
+  chart.graphToImg('DET', completeArr.map(e => e.price));
 };
 
 try {
@@ -118,5 +191,6 @@ module.exports = {
   percentageDifference,
   movingAvg,
   expMovingAvg,
-  getPricesPerTimestep
+  getPricesPerTimestep,
+  relStrIndex
 };
