@@ -146,24 +146,28 @@ const relStrIndex = (trades, time) => {
   return rsiArray;
 };
 
-const TRANSACTION_TIME = 5;
+const TRANSACTION_TIME = 10;
+const tradingFee = 0.001 * 2; // buy and sell
+const marginFee = 0.005 * 2; // buy and sell
+const accumulatedFees = price => price * tradingFee + price * marginFee;
 const expectedAction = trades => {
-  // can be 
-  // selling or buying takes 10 seconds
-  // compro o vendo perdiendo 2% para vender rapido
-  // sumarle 0.1% del fee de binance
-  const trades = trades[0];
   trades.map((t, index) => {
-    for (let i = 0; i < trades.length; i++) {
-      if (moment(trades[i].time).diff(t.time, 'seconds') > TRANSACTION_TIME && (diffNumbers(t.realPrice, trades[i].realPrice) * 100) / t.price > 3) {
-        // compra
+    const newTrades = trades.slice(index);
+    if (trades[index + 1].realPrice >= t.realPrice) {
+      let accumulated = 0;
+      let average = 0;
+      for (let i = 0; i < newTrades.length; i++) {
+        accumulated += newTrades[i].realPrice;
+        average = accumulated / (i + 1);
+        if (average < t.realPrice) break;
+        if (average > accumulatedFees(t.realPrice) && newTrades[TRANSACTION_TIME].realPrice > t.realPrice) {
+          // COMPRO
+        }
       }
-      if (moment(trades[i].time).diff(t.time, 'seconds') > TRANSACTION_TIME && (diffNumbers(t.realPrice, trades[i].realPrice) * 100) / t.price > 3) {
-        // compra
-      }
+    } else {
+
     }
   });
-  for ()
 };
 
 const arima = async () => {
