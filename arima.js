@@ -151,28 +151,47 @@ const tradingFee = 0.001 * 2; // buy and sell
 const marginFee = 0.005 * 2; // buy and sell
 const accumulatedFees = price => price * tradingFee + price * marginFee;
 const expectedAction = trades => {
-  return trades.map((t, index) => {
+  return trades.reduce((res, t, index) => {
     const newTrades = trades.slice(index);
+    if (!newTrades[TRANSACTION_TIME]) return res;
     if (trades[index + 1].realPrice >= t.realPrice) {
       let accumulated = 0;
       let average = 0;
       for (let i = 0; i < newTrades.length; i++) {
         accumulated += newTrades[i].realPrice;
         average = accumulated / (i + 1);
-        if (average < t.realPrice) return { ...t, action: 'NOTHING' };
+        if (average < t.realPrice) return [...res, { ...t, action: 'NOTHING' }];
         if (average > accumulatedFees(t.realPrice) && newTrades[TRANSACTION_TIME].realPrice > t.realPrice) {
-          return {
+          return [...res, {
             ...t,
             action: 'BUY'
-          };
-        } else return { ...t, action: 'NOTHING' };
+          }];
+        } else return [...res, { ...t, action: 'NOTHING' }];
       }
     } else if(newTrades[TRANSACTION_TIME].realPrice < t.realPrice){
-      return { ...t, action: 'SELL' };
+      return [...res, { ...t, action: 'SELL' }];
     } else {
-      return { ...t, action: 'NOTHING' };
+      return [...res, { ...t, action: 'NOTHING' }];
+    }
+  }, []);
+};
+
+const calculateReturns = trades => {
+  const money = {
+    USD: 100,
+    CUR: 0
+  };
+  trades.forEach(t => {
+    if (t.action === 'BUY') {
+      money.USD -= (money.USD * 0.01);
+      money.CUR += (money.USD * 0.01) / t.realPrice;
+    }
+    if (t.action === 'SELL') {
+      money.USD += money.CUR * t.realPrice;
+      money.CUR = 0;
     }
   });
+  return money;
 };
 
 const arima = async () => {
@@ -181,9 +200,10 @@ const arima = async () => {
   const emaArray = expMovingAvg(detrended, 60);
   const rsiArray = relStrIndex(emaArray, 60);
   const completeArr = movingAvg(rsiArray, 60);
-  const ultimateAtt = expectedAction(completeArr);
+  const ultimateArr = expectedAction(completeArr);
+  const returns = calculateReturns(ultimateArr);
   // este es el que me va a importar
-  // chart.graphToImg('MA', completeArr.map(e => e.MA));
+  chart.graphToImg('MA', completeArr.map(e => e.MA));
   // chart.graphToImg('REAL', completeArr.map(e => e.realPrice));
   // chart.graphToImg('RSI', completeArr.map(e => e.RSI));
   // chart.graphToImg('EMA', completeArr.map(e => e.EMA));
