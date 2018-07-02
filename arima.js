@@ -151,7 +151,7 @@ const tradingFee = 0.001 * 2; // buy and sell
 const marginFee = 0.005 * 2; // buy and sell
 const accumulatedFees = price => price * tradingFee + price * marginFee;
 const expectedAction = trades => {
-  trades.map((t, index) => {
+  return trades.map((t, index) => {
     const newTrades = trades.slice(index);
     if (trades[index + 1].realPrice >= t.realPrice) {
       let accumulated = 0;
@@ -159,13 +159,18 @@ const expectedAction = trades => {
       for (let i = 0; i < newTrades.length; i++) {
         accumulated += newTrades[i].realPrice;
         average = accumulated / (i + 1);
-        if (average < t.realPrice) break;
+        if (average < t.realPrice) return { ...t, action: 'NOTHING' };
         if (average > accumulatedFees(t.realPrice) && newTrades[TRANSACTION_TIME].realPrice > t.realPrice) {
-          // COMPRO
-        }
+          return {
+            ...t,
+            action: 'BUY'
+          };
+        } else return { ...t, action: 'NOTHING' };
       }
+    } else if(newTrades[TRANSACTION_TIME].realPrice < t.realPrice){
+      return { ...t, action: 'SELL' };
     } else {
-
+      return { ...t, action: 'NOTHING' };
     }
   });
 };
@@ -176,7 +181,7 @@ const arima = async () => {
   const emaArray = expMovingAvg(detrended, 60);
   const rsiArray = relStrIndex(emaArray, 60);
   const completeArr = movingAvg(rsiArray, 60);
-
+  const ultimateAtt = expectedAction(completeArr);
   // este es el que me va a importar
   chart.graphToImg('MA', completeArr.map(e => e.MA));
   chart.graphToImg('REAL', completeArr.map(e => e.realPrice));
