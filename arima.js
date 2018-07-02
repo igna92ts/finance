@@ -183,11 +183,11 @@ const arima = async () => {
   const completeArr = movingAvg(rsiArray, 60);
   const ultimateAtt = expectedAction(completeArr);
   // este es el que me va a importar
-  chart.graphToImg('MA', completeArr.map(e => e.MA));
-  chart.graphToImg('REAL', completeArr.map(e => e.realPrice));
-  chart.graphToImg('RSI', completeArr.map(e => e.RSI));
-  chart.graphToImg('EMA', completeArr.map(e => e.EMA));
-  chart.graphToImg('DET', completeArr.map(e => e.price));
+  // chart.graphToImg('MA', completeArr.map(e => e.MA));
+  // chart.graphToImg('REAL', completeArr.map(e => e.realPrice));
+  // chart.graphToImg('RSI', completeArr.map(e => e.RSI));
+  // chart.graphToImg('EMA', completeArr.map(e => e.EMA));
+  // chart.graphToImg('DET', completeArr.map(e => e.price));
 };
 
 try {
