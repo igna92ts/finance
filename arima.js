@@ -38,13 +38,11 @@ const getPricesPerTimestep = historicalTrades => {
 };
 
 const fetchTrades = async amount => {
-  console.log('FETCHING TRADES');
   const historicalTrades = await binance.fetchTrades(amount);
   return getPricesPerTimestep(historicalTrades);
 };
 
 const differenceTrades = trades => {
-  console.log('DIFFERENCING TRADES ', trades.length);
   return trades.reduce((res, t, index) => {
     if (index > 0) {
       res.push({
@@ -161,7 +159,7 @@ const expectedAction = trades => {
         accumulated += newTrades[i].realPrice;
         average = accumulated / (i + 1);
         if (average < t.realPrice) return [...res, { ...t, action: 'NOTHING' }];
-        if (average > accumulatedFees(t.realPrice) && newTrades[TRANSACTION_TIME].realPrice > t.realPrice) {
+        if (average > accumulatedFees(t.realPrice) && newTrades[TRANSACTION_TIME].realPrice > t.realPrice && newTrades[i].realPrice > accumulatedFees(t.realPrice)) {
           return [...res, {
             ...t,
             action: 'BUY'
@@ -182,9 +180,9 @@ const calculateReturns = trades => {
     CUR: 0
   };
   trades.forEach(t => {
-    if (t.action === 'BUY') {
-      money.USD -= (money.USD * 0.01);
+    if (t.action === 'BUY' && money.USD > 0) {
       money.CUR += (money.USD * 0.01) / t.realPrice;
+      money.USD -= (money.USD * 0.01);
     }
     if (t.action === 'SELL') {
       money.USD += money.CUR * t.realPrice;
@@ -195,12 +193,19 @@ const calculateReturns = trades => {
 };
 
 const arima = async () => {
-  const tradeData = await fetchTrades(100); // newest is last
+  console.log('FETCHING');
+  const tradeData = await fetchTrades(20000); // newest is last
+  console.log('DIFFERENCING');
   const detrended = percentageDifference(tradeData);
+  console.log('EMA');
   const emaArray = expMovingAvg(detrended, 60);
+  console.log('RSI');
   const rsiArray = relStrIndex(emaArray, 60);
+  console.log('MA');
   const completeArr = movingAvg(rsiArray, 60);
+  console.log('EXPECTED ACTION');
   const ultimateArr = expectedAction(completeArr);
+  console.log('CALCULATING RETURNS');
   const returns = calculateReturns(ultimateArr);
   // este es el que me va a importar
   chart.graphToImg('MA', completeArr.map(e => e.MA));

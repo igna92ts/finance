@@ -4,7 +4,7 @@ const request = require('request'),
   { diffTimes } = require('../helpers');
 
 const key = '8tc4fJ1ddM2VmnbFzTk3f7hXsrehnT8wP7u6EdIoVq7gyXWiL852TP1wnKp0qaGM';
-const symbol = 'batbtc';
+const symbol = 'keybtc';
 
 // let BTCPRICE = 0;
 // const ws = new webSocket('wss://stream.binance.com:9443/ws/btcusdt@ticker');
@@ -17,17 +17,14 @@ const symbol = 'batbtc';
 
 exports.watchTrades = callback => {
   exports.fetchBTCPrice().then(btcPrice => {
-    
     const tradesWs = new webSocket(`wss://stream.binance.com:9443/ws/${symbol}@aggTrade`);
     const btcPriceWs = new webSocket('wss://stream.binance.com:9443/ws/btcusdt@ticker');
-    
     btcPriceWs.on('open', () => {
       console.log('opened connection to btc price ticker');
     });
     btcPriceWs.on('message', data => {
       btcPrice = parseFloat(JSON.parse(data)['b']);
     });
-    
     tradesWs.on('open', () => {
       console.log('opened connection to trade ticker');
     });
@@ -38,7 +35,6 @@ exports.watchTrades = callback => {
         price: parseFloat(trade.p) * btcPrice,
         volume: parseFloat(trade.q)
       };
-      
       callback(parsedTrade);
     });
   });
