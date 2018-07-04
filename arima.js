@@ -144,10 +144,11 @@ const relStrIndex = (trades, time) => {
   return rsiArray;
 };
 
-const TRANSACTION_TIME = 10;
+const TRANSACTION_TIME = 5;
 const tradingFee = 0.001 * 2; // buy and sell
-const marginFee = 0.005 * 2; // buy and sell
-const accumulatedFees = price => price * tradingFee + price * marginFee;
+const marginFee = 0.001 * 2; // buy and sell earnings
+const fastSellingMargin = 0.001 * 2; // 0.5% to buy and sell fast
+const accumulatedFees = price => price + (price * tradingFee + price * marginFee + price * fastSellingMargin);
 const expectedAction = trades => {
   return trades.reduce((res, t, index) => {
     const newTrades = trades.slice(index);
@@ -158,8 +159,9 @@ const expectedAction = trades => {
       for (let i = 0; i < newTrades.length; i++) {
         accumulated += newTrades[i].realPrice;
         average = accumulated / (i + 1);
+        if (!newTrades[i + TRANSACTION_TIME]) return res;
         if (average < t.realPrice) return [...res, { ...t, action: 'NOTHING' }];
-        if (average > accumulatedFees(t.realPrice) && newTrades[TRANSACTION_TIME].realPrice > t.realPrice && newTrades[i].realPrice > accumulatedFees(t.realPrice)) {
+        if (average > accumulatedFees(t.realPrice) && newTrades[i + TRANSACTION_TIME].realPrice > t.realPrice && newTrades[i].realPrice > accumulatedFees(t.realPrice)) {
           return [...res, {
             ...t,
             action: 'BUY'
@@ -176,17 +178,37 @@ const expectedAction = trades => {
 
 const calculateReturns = trades => {
   const money = {
-    USD: 100,
+    USD: 1000,
     CUR: 0
   };
   trades.forEach(t => {
     if (t.action === 'BUY' && money.USD > 0) {
-      money.CUR += (money.USD * 0.01) / t.realPrice;
+      money.CUR += (money.USD * 0.01) / (t.realPrice + t.realPrice * 0.001); // I add a little to buy it fast
       money.USD -= (money.USD * 0.01);
     }
     if (t.action === 'SELL') {
-      money.USD += money.CUR * t.realPrice;
+      money.USD += money.CUR * (t.realPrice - t.realPrice * 0.001);
       money.CUR = 0;
+    }
+  });
+  return money;
+};
+
+const calculateMaxReturns = trades => {
+  const money = {
+    USD: 100,
+    CUR: 0
+  };
+  trades.forEach((t, index) => {
+    if (trades[index + 1]) {
+      if (trades[index + 1].realPrice > t.realPrice && money.USD > 0) {
+        money.CUR = money.USD / t.realPrice;
+        money.USD = 0;
+      }
+      if (trades[index + 1].realPrice < t.realPrice && money.CUR > 0) {
+        money.USD = money.CUR * t.realPrice;
+        money.CUR = 0;
+      }
     }
   });
   return money;
@@ -207,6 +229,7 @@ const arima = async () => {
   const ultimateArr = expectedAction(completeArr);
   console.log('CALCULATING RETURNS');
   const returns = calculateReturns(ultimateArr);
+  const maxReturns = calculateMaxReturns(ultimateArr);
   // este es el que me va a importar
   chart.graphToImg('MA', completeArr.map(e => e.MA));
   // chart.graphToImg('REAL', completeArr.map(e => e.realPrice));
