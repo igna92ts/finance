@@ -159,9 +159,9 @@ const expectedAction = trades => {
       for (let i = 0; i < newTrades.length; i++) {
         accumulated += newTrades[i].realPrice;
         average = accumulated / (i + 1);
-        if (!newTrades[i + TRANSACTION_TIME]) return res;
-        if (average < t.realPrice) return [...res, { ...t, action: 'NOTHING' }];
-        if (average > accumulatedFees(t.realPrice) && newTrades[i + TRANSACTION_TIME].realPrice > t.realPrice && newTrades[i].realPrice > accumulatedFees(t.realPrice)) {
+        if (!newTrades[i + TRANSACTION_TIME]) return [...res, { ...t, action: 'NOTHING' }];
+        if (average < t.realPrice) continue;
+        if (average > accumulatedFees(t.realPrice) && newTrades[i + TRANSACTION_TIME].realPrice > accumulatedFees(t.realPrice)) {
           return [...res, {
             ...t,
             action: 'BUY'
