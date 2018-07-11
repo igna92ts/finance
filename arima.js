@@ -166,8 +166,9 @@ const expectedAction = trades => {
             ...t,
             action: 'BUY'
           }];
-        } else return [...res, { ...t, action: 'NOTHING' }];
+        }
       }
+      return [...res, { ...t, action: 'NOTHING' }];
     } else if(newTrades[TRANSACTION_TIME].realPrice < t.realPrice){
       return [...res, { ...t, action: 'SELL' }];
     } else {
@@ -196,7 +197,7 @@ const calculateReturns = trades => {
 
 const calculateMaxReturns = trades => {
   const money = {
-    USD: 100,
+    USD: 1000,
     CUR: 0
   };
   trades.forEach((t, index) => {
@@ -216,7 +217,7 @@ const calculateMaxReturns = trades => {
 
 const arima = async () => {
   console.log('FETCHING');
-  const tradeData = await fetchTrades(20000); // newest is last
+  const tradeData = await fetchTrades(10000); // newest is last
   console.log('DIFFERENCING');
   const detrended = percentageDifference(tradeData);
   console.log('EMA');
