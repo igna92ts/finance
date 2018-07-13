@@ -3,7 +3,8 @@ require('babel-polyfill');
 const binance = require('./binance'),
   moment = require('moment'),
   chart = require('./chart'),
-  { roundTime } = require('./helpers');
+  { roundTime } = require('./helpers'),
+  tree = require('./tree');
 
 const TIME_CONSTRAINT = 'seconds';
 const TIME_MS = 1000;
@@ -184,8 +185,8 @@ const calculateReturns = trades => {
   };
   trades.forEach(t => {
     if (t.action === 'BUY' && money.USD > 0) {
-      money.CUR += (money.USD * 0.01) / (t.realPrice + t.realPrice * 0.001); // I add a little to buy it fast
-      money.USD -= (money.USD * 0.01);
+      money.CUR += (money.USD * 0.1) / (t.realPrice + t.realPrice * 0.001); // I add a little to buy it fast
+      money.USD -= (money.USD * 0.1);
     }
     if (t.action === 'SELL') {
       money.USD += money.CUR * (t.realPrice - t.realPrice * 0.001);
@@ -217,7 +218,7 @@ const calculateMaxReturns = trades => {
 
 const arima = async () => {
   console.log('FETCHING');
-  const tradeData = await fetchTrades(10000); // newest is last
+  const tradeData = await fetchTrades(1000); // newest is last
   console.log('DIFFERENCING');
   const detrended = percentageDifference(tradeData);
   console.log('EMA');
@@ -232,6 +233,7 @@ const arima = async () => {
   const returns = calculateReturns(ultimateArr);
   const maxReturns = calculateMaxReturns(ultimateArr);
   // este es el que me va a importar
+  const proportion = tree.calculateClassProportion(['BUY', 'SELL', 'NOTHING'], ultimateArr);
   chart.graphToImg('MA', completeArr.map(e => e.MA));
   // chart.graphToImg('REAL', completeArr.map(e => e.realPrice));
   // chart.graphToImg('RSI', completeArr.map(e => e.RSI));
