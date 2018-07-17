@@ -230,15 +230,11 @@ const arima = async () => {
   console.log('EXPECTED ACTION');
   const ultimateArr = expectedAction(completeArr);
   console.log('CALCULATING RETURNS');
-  const returns = calculateReturns(ultimateArr);
-  const maxReturns = calculateMaxReturns(ultimateArr);
-  // este es el que me va a importar
-  const proportion = tree.calculateClassProportion(['BUY', 'SELL', 'NOTHING'], ultimateArr);
+  // const returns = calculateReturns(ultimateArr);
+  // const maxReturns = calculateMaxReturns(ultimateArr);
   chart.graphToImg('MA', completeArr.map(e => e.MA));
-  // chart.graphToImg('REAL', completeArr.map(e => e.realPrice));
-  // chart.graphToImg('RSI', completeArr.map(e => e.RSI));
-  // chart.graphToImg('EMA', completeArr.map(e => e.EMA));
-  // chart.graphToImg('DET', completeArr.map(e => e.price));
+  const clasificator = tree.buildTree(ultimateArr.slice(0, ultimateArr.length / 2));
+  console.log('TERMINO');
 };
 
 try {
