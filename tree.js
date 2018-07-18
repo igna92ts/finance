@@ -1,3 +1,16 @@
+const Random = require('random-js'),
+  mt = Random.engines.mt19937().autoSeed();
+
+const pickRandomElement = array => Random.pick(mt, array);
+const pickRandomElements = (count, array) => {
+  const elements = [];
+  for (let i = 0; i < count; i++) {
+    elements.push(Random.pick(mt, array));
+  }
+  return elements;
+};
+const getRandomInt = (min, max) => Random.integer(min, max)(mt);
+
 const calculateClassProportion = (classArray, data) => {
   return classArray.reduce((t, e) => {
     const filteredData = data.filter(d => d.action === e);
@@ -67,6 +80,36 @@ const buildTree = data => {
   console.log('ITERATION');
   return newValue => split.question(newValue) ? matchedQuestion(newValue) : restQuestion(newValue);
 };
+
+const getSample = (size, data) => {
+  const sample = [];
+  for (let i = 0; i < size; i++) {
+    sample.push(pickRandomElement(data));
+  }
+  return sample;
+};
+
+const buildForest = (features, data) => {
+  const forest = [];
+
+  for (let i = 0; i < 100; i++) {
+    const sample = getSample(data.length / 4, data);
+    const tree = buildTree(sample.map(s => {
+      const rnd = pickRandomElements(getRandomInt(1, features.length), features);
+      const result = rnd.reduce((t, e) => ({ ...t, [e]: s[e] }), {});
+      return { ...result, action: s.action };
+    }));
+    forest.push(tree);
+  }
+  debugger;
+};
+buildForest(['color', 'diameter'], [
+  { color: 'green', diameter: 3, action: 'apple' },
+  { color: 'yellow', diameter: 3, action: 'apple' },
+  { color: 'red', diameter: 1, action: 'grape' },
+  { color: 'red', diameter: 1, action: 'grape' },
+  { color: 'yellow', diameter: 3, action: 'lemon' }
+]);
 
 module.exports = {
   buildTree
