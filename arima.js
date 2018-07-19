@@ -232,8 +232,10 @@ const arima = async () => {
   console.log('CALCULATING RETURNS');
   // const returns = calculateReturns(ultimateArr);
   // const maxReturns = calculateMaxReturns(ultimateArr);
-  chart.graphToImg('MA', completeArr.map(e => e.MA));
+  // chart.graphToImg('MA', completeArr.map(e => e.MA));
   const clasificator = tree.buildTree(ultimateArr.slice(0, ultimateArr.length / 2));
+  const forest = tree.buildForest(['MA', 'RSI', 'EMA', 'price'], ultimateArr.slice(0, ultimateArr.length/ 2)); // saque time porque no sirve asi como esta
+  debugger;
   console.log('TERMINO');
 };
 

@@ -1,5 +1,6 @@
 const Random = require('random-js'),
-  mt = Random.engines.mt19937().autoSeed();
+  mt = Random.engines.mt19937().autoSeed(),
+  { memoize } = require('./helpers');
 
 const pickRandomElement = array => Random.pick(mt, array);
 const pickRandomElements = (count, array) => {
@@ -92,8 +93,8 @@ const getSample = (size, data) => {
 const buildForest = (features, data) => {
   const forest = [];
 
-  for (let i = 0; i < 100; i++) {
-    const sample = getSample(data.length / 4, data);
+  for (let i = 0; i < 10; i++) {
+    const sample = getSample(data.length, data);
     const tree = buildTree(sample.map(s => {
       const rnd = pickRandomElements(getRandomInt(1, features.length), features);
       const result = rnd.reduce((t, e) => ({ ...t, [e]: s[e] }), {});
@@ -101,18 +102,19 @@ const buildForest = (features, data) => {
     }));
     forest.push(tree);
   }
-  debugger;
+  return forest;
 };
-buildForest(['color', 'diameter'], [
-  { color: 'green', diameter: 3, action: 'apple' },
-  { color: 'yellow', diameter: 3, action: 'apple' },
-  { color: 'red', diameter: 1, action: 'grape' },
-  { color: 'red', diameter: 1, action: 'grape' },
-  { color: 'yellow', diameter: 3, action: 'lemon' }
-]);
+// buildForest(['color', 'diameter'], [
+//   { color: 'green', diameter: 3, action: 'apple' },
+//   { color: 'yellow', diameter: 3, action: 'apple' },
+//   { color: 'red', diameter: 1, action: 'grape' },
+//   { color: 'red', diameter: 1, action: 'grape' },
+//   { color: 'yellow', diameter: 3, action: 'lemon' }
+// ]);
 
 module.exports = {
-  buildTree
+  buildTree,
+  buildForest
 };
 // const tree = buildTree([
 //   { color: 'green', diameter: 3, action: 'apple' },
