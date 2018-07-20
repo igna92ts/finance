@@ -4,7 +4,7 @@ const request = require('request'),
   { diffTimes } = require('../helpers');
 
 const key = '8tc4fJ1ddM2VmnbFzTk3f7hXsrehnT8wP7u6EdIoVq7gyXWiL852TP1wnKp0qaGM';
-const symbol = 'bcptbtc';
+const symbol = 'nasbtc';
 
 // let BTCPRICE = 0;
 // const ws = new webSocket('wss://stream.binance.com:9443/ws/btcusdt@ticker');
