@@ -216,6 +216,23 @@ const calculateMaxReturns = trades => {
   return money;
 };
 
+const estimate = (forest, trade) => {
+  return forest.map(tree => tree(trade)).reduce((res, e) => {
+    const keys = Object.keys(e);
+    keys.forEach(k => {
+      res[k] += e[k];
+    });
+    return res;
+  }, { BUY: 0, NOTHING: 0, SELL: 0});
+};
+
+const changeTime = trades => {
+  return trades.map(t => {
+    const time = moment(t.time);
+    return { ...t, time: parseInt(`${time.hours()}${time.minutes()}${time.seconds()}`)};
+  });
+};
+
 const arima = async () => {
   console.log('FETCHING');
   const tradeData = await fetchTrades(1000); // newest is last
@@ -226,17 +243,17 @@ const arima = async () => {
   console.log('RSI');
   const rsiArray = relStrIndex(emaArray, 60);
   console.log('MA');
-  const completeArr = movingAvg(rsiArray, 60);
+  const maArray = movingAvg(rsiArray, 60);
   console.log('EXPECTED ACTION');
-  const ultimateArr = expectedAction(completeArr);
-  console.log('CALCULATING RETURNS');
+  const expectedActionArr = expectedAction(maArray);
+  console.log('changing time');
+  const ultimateArr = changeTime(expectedActionArr);
   // const returns = calculateReturns(ultimateArr);
   // const maxReturns = calculateMaxReturns(ultimateArr);
-  // chart.graphToImg('MA', completeArr.map(e => e.MA));
-  const clasificator = tree.buildTree(ultimateArr.slice(0, ultimateArr.length / 2));
-  const forest = tree.buildForest(['MA', 'RSI', 'EMA', 'price'], ultimateArr.slice(0, ultimateArr.length/ 2)); // saque time porque no sirve asi como esta
-  debugger;
+  const forest = tree.buildForest(['MA', 'EMA', 'RSI', 'price', 'time'], ultimateArr.slice(0, ultimateArr.length / 2));
   console.log('TERMINO');
+  const test = ultimateArr.slice(ultimateArr.length / 2).map(e => ({ estimate: estimate(forest, e), actual: e }));
+  debugger;
 };
 
 try {

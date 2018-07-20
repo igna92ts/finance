@@ -78,7 +78,6 @@ const buildTree = data => {
 
   const matchedQuestion = buildTree(matched);
   const restQuestion = buildTree(rest);
-  console.log('ITERATION');
   return newValue => split.question(newValue) ? matchedQuestion(newValue) : restQuestion(newValue);
 };
 
@@ -92,8 +91,9 @@ const getSample = (size, data) => {
 
 const buildForest = (features, data) => {
   const forest = [];
-
-  for (let i = 0; i < 10; i++) {
+  const forestSize = 10;
+  for (let i = 0; i < forestSize; i++) {
+    console.log(`CREATING TREE ${i} OF ${forestSize}`);
     const sample = getSample(data.length, data);
     const tree = buildTree(sample.map(s => {
       const rnd = pickRandomElements(getRandomInt(1, features.length), features);
