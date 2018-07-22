@@ -28,10 +28,21 @@ const createQuestion = (key, value) => {
 };
 
 const partition = (data, question) => {
-  return data.reduce((acc, e) => {
-    acc[question(e) ? 0 : 1].push(e);
-    return acc;
-  }, [[], []]);
+  return data.reduce(
+    (acc, e) => {
+      acc[question(e) ? 0 : 1].push(e);
+      return acc;
+    },
+    [[], []]
+  );
+};
+
+const gini = data => {
+  const uniqueValues = getUniqueValues('action', data);
+  return uniqueValues.reduce((impurity, val) => {
+    const prob = data.filter(e => e.action === val).length / data.length;
+    return impurity - prob ** 2; // Math.pow(prob, 2);
+  }, 1);
 };
 
 const informationGain = (left, right, currentUncertainty) => {
@@ -39,33 +50,33 @@ const informationGain = (left, right, currentUncertainty) => {
   return currentUncertainty - p * gini(left) - (1 - p) * gini(right);
 };
 
-const gini = data => {
-  const uniqueValues = getUniqueValues('action', data);
-  return uniqueValues.reduce((impurity, val) => {
-    const prob = data.filter(e => e.action === val).length / data.length;
-    return impurity - Math.pow(prob, 2);
-  }, 1);
-};
-
 const findBestSplit = data => {
   const currentUncertainty = gini(data);
 
-  return Object.keys(data[0]).filter(e => e !== 'action').reduce((finalResult, key) => {
-    const values = getUniqueValues(key, data);
-    const newResult = values.reduce((result, v) => {
-      const question = createQuestion(key, v);
-      const [matched, rest] = partition(data, question);
+  return Object.keys(data[0])
+    .filter(e => e !== 'action')
+    .reduce(
+      (finalResult, key) => {
+        const values = getUniqueValues(key, data);
+        const newResult = values.reduce(
+          (result, v) => {
+            const question = createQuestion(key, v);
+            const [matched, rest] = partition(data, question);
 
-      if (matched.length === 0 || rest.length === 0) return result;
+            if (matched.length === 0 || rest.length === 0) return result;
 
-      const gain = informationGain(matched, rest, currentUncertainty);
+            const gain = informationGain(matched, rest, currentUncertainty);
 
-      if (gain >= result.gain) return { question, gain };
-      return result;
-    }, { gain: 0, question: d => d });
-    if (newResult.gain >= finalResult.gain) return newResult;
-    else return finalResult;
-  }, { gain: 0, question: d => d });
+            if (gain >= result.gain) return { question, gain };
+            return result;
+          },
+          { gain: 0, question: d => d }
+        );
+        if (newResult.gain >= finalResult.gain) return newResult;
+        else return finalResult;
+      },
+      { gain: 0, question: d => d }
+    );
 };
 
 const buildTree = data => {
@@ -77,7 +88,7 @@ const buildTree = data => {
 
   const matchedQuestion = buildTree(matched);
   const restQuestion = buildTree(rest);
-  return newValue => split.question(newValue) ? matchedQuestion(newValue) : restQuestion(newValue);
+  return newValue => (split.question(newValue) ? matchedQuestion(newValue) : restQuestion(newValue));
 };
 
 const getSample = (size, data) => {
@@ -94,11 +105,13 @@ const buildForest = (features, data) => {
   for (let i = 0; i < forestSize; i++) {
     console.log(`CREATING TREE ${i} OF ${forestSize}`);
     const sample = getSample(data.length, data);
-    const tree = buildTree(sample.map(s => {
-      const rnd = pickRandomElements(getRandomInt(1, features.length), features);
-      const result = rnd.reduce((t, e) => ({ ...t, [e]: s[e] }), {});
-      return { ...result, action: s.action };
-    }));
+    const tree = buildTree(
+      sample.map(s => {
+        const rnd = pickRandomElements(getRandomInt(1, features.length), features);
+        const result = rnd.reduce((t, e) => ({ ...t, [e]: s[e] }), {});
+        return { ...result, action: s.action };
+      })
+    );
     forest.push(tree);
   }
   return forest;

@@ -1,10 +1,10 @@
 require('babel-polyfill');
 
-const binance = require('./binance'),
-  moment = require('moment'),
+const moment = require('moment'),
+  binance = require('./binance'),
   chart = require('./chart'),
   { roundTime } = require('./helpers'),
-  tree = require('./tree');
+  rndForest = require('./tree');
 
 const TIME_CONSTRAINT = 'seconds';
 const TIME_MS = 1000;
@@ -162,15 +162,21 @@ const expectedAction = trades => {
         average = accumulated / (i + 1);
         if (!newTrades[i + TRANSACTION_TIME]) return [...res, { ...t, action: 'NOTHING' }];
         if (average < t.realPrice) continue;
-        if (average > accumulatedFees(t.realPrice) && newTrades[i + TRANSACTION_TIME].realPrice > accumulatedFees(t.realPrice)) {
-          return [...res, {
-            ...t,
-            action: 'BUY'
-          }];
+        if (
+          average > accumulatedFees(t.realPrice) &&
+          newTrades[i + TRANSACTION_TIME].realPrice > accumulatedFees(t.realPrice)
+        ) {
+          return [
+            ...res,
+            {
+              ...t,
+              action: 'BUY'
+            }
+          ];
         }
       }
       return [...res, { ...t, action: 'NOTHING' }];
-    } else if(newTrades[TRANSACTION_TIME].realPrice < t.realPrice){
+    } else if (newTrades[TRANSACTION_TIME].realPrice < t.realPrice){
       return [...res, { ...t, action: 'SELL' }];
     } else {
       return [...res, { ...t, action: 'NOTHING' }];
@@ -186,7 +192,7 @@ const calculateReturns = trades => {
   trades.forEach(t => {
     if (t.action === 'BUY' && money.USD > 0) {
       money.CUR += (money.USD * 0.1) / (t.realPrice + t.realPrice * 0.001); // I add a little to buy it fast
-      money.USD -= (money.USD * 0.1);
+      money.USD -= money.USD * 0.1;
     }
     if (t.action === 'SELL') {
       money.USD += money.CUR * (t.realPrice - t.realPrice * 0.001);
@@ -217,19 +223,22 @@ const calculateMaxReturns = trades => {
 };
 
 const estimate = (forest, trade) => {
-  return forest.map(tree => tree(trade)).reduce((res, e) => {
-    const keys = Object.keys(e);
-    keys.forEach(k => {
-      res[k] += e[k];
-    });
-    return res;
-  }, { BUY: 0, NOTHING: 0, SELL: 0});
+  return forest.map(tree => tree(trade)).reduce(
+    (res, e) => {
+      const keys = Object.keys(e);
+      keys.forEach(k => {
+        res[k] += e[k];
+      });
+      return res;
+    },
+    { BUY: 0, NOTHING: 0, SELL: 0 }
+  );
 };
 
 const changeTime = trades => {
   return trades.map(t => {
     const time = moment(t.time);
-    return { ...t, time: parseInt(`${time.hours()}${time.minutes()}${time.seconds()}`)};
+    return { ...t, time: parseInt(`${time.hours()}${time.minutes()}${time.seconds()}`) };
   });
 };
 
@@ -250,9 +259,14 @@ const arima = async () => {
   const ultimateArr = changeTime(expectedActionArr);
   // const returns = calculateReturns(ultimateArr);
   // const maxReturns = calculateMaxReturns(ultimateArr);
-  const forest = tree.buildForest(['MA', 'EMA', 'RSI', 'price', 'time'], ultimateArr.slice(0, ultimateArr.length / 2));
+  const forest = rndForest.buildForest(
+    ['MA', 'EMA', 'RSI', 'price', 'time'],
+    ultimateArr.slice(0, ultimateArr.length / 2)
+  );
   console.log('TERMINO');
-  const test = ultimateArr.slice(ultimateArr.length / 2).map(e => ({ estimate: estimate(forest, e), actual: e }));
+  const test = ultimateArr
+    .slice(ultimateArr.length / 2)
+    .map(e => ({ estimate: estimate(forest, e), actual: e }));
   debugger;
 };
 
