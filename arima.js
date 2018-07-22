@@ -6,8 +6,8 @@ const moment = require('moment'),
   { roundTime } = require('./helpers'),
   rndForest = require('./tree');
 
-const TIME_CONSTRAINT = 'seconds';
-const TIME_MS = 1000;
+const TIME_CONSTRAINT = 'minutes';
+const TIME_MS = 60000;
 
 const getPricesPerTimestep = historicalTrades => {
   let initialTime = roundTime(historicalTrades[0].time, 1, TIME_CONSTRAINT, 'floor');
@@ -244,7 +244,7 @@ const changeTime = trades => {
 
 const arima = async () => {
   console.log('FETCHING');
-  const tradeData = await fetchTrades(1000); // newest is last
+  const tradeData = await fetchTrades(40000); // newest is last
   console.log('DIFFERENCING');
   const detrended = percentageDifference(tradeData);
   console.log('EMA');
