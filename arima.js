@@ -3,11 +3,12 @@ require('babel-polyfill');
 const moment = require('moment'),
   binance = require('./binance'),
   chart = require('./chart'),
-  { roundTime } = require('./helpers'),
+  { roundTime, pipe } = require('./helpers'),
+  validator = require('./validator'),
   rndForest = require('./tree');
 
-const TIME_CONSTRAINT = 'minutes';
-const TIME_MS = 60000;
+const TIME_CONSTRAINT = 'seconds';
+const TIME_MS = 1000;
 
 const getPricesPerTimestep = historicalTrades => {
   let initialTime = roundTime(historicalTrades[0].time, 1, TIME_CONSTRAINT, 'floor');
@@ -244,29 +245,21 @@ const changeTime = trades => {
 
 const arima = async () => {
   console.log('FETCHING');
-  const tradeData = await fetchTrades(40000); // newest is last
-  console.log('DIFFERENCING');
-  const detrended = percentageDifference(tradeData);
-  console.log('EMA');
-  const emaArray = expMovingAvg(detrended, 60);
-  console.log('RSI');
-  const rsiArray = relStrIndex(emaArray, 60);
-  console.log('MA');
-  const maArray = movingAvg(rsiArray, 60);
-  console.log('EXPECTED ACTION');
-  const expectedActionArr = expectedAction(maArray);
-  console.log('changing time');
-  const ultimateArr = changeTime(expectedActionArr);
+  const tradeData = await fetchTrades(4000); // newest is last
+  const data = pipe(
+    tradeData,
+    [percentageDifference],
+    [expMovingAvg, 60],
+    [relStrIndex, 60],
+    [movingAvg, 60],
+    [expectedAction],
+    [changeTime]
+  );
   // const returns = calculateReturns(ultimateArr);
   // const maxReturns = calculateMaxReturns(ultimateArr);
-  const forest = rndForest.buildForest(
-    ['MA', 'EMA', 'RSI', 'price', 'time'],
-    ultimateArr.slice(0, ultimateArr.length / 2)
-  );
+  // const forest = rndForest.buildForest(['MA', 'EMA', 'RSI', 'price', 'time'], data.slice(0, data.length / 2));
+  const validation = validator.validate(10, ['MA', 'EMA', 'RSI', 'price', 'time'], data);
   console.log('TERMINO');
-  const test = ultimateArr
-    .slice(ultimateArr.length / 2)
-    .map(e => ({ estimate: estimate(forest, e), actual: e }));
   debugger;
 };
 
