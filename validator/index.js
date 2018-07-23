@@ -27,8 +27,10 @@ const classify = (forest, trade) => {
 };
 
 const validate = (folds = 10, features, data) => {
+  console.time('testing');
   const chunked = chunkArray(data, folds);
   const comparisons = chunked.map((chunk, index) => {
+    console.log(`FOLD NUMBER ${index}`);
     const trainingData = mergeWithout(index, chunked);
     const forest = rndForest.buildForest(features, trainingData);
     const results = chunk.map(c => classify(forest, c));
@@ -39,6 +41,7 @@ const validate = (folds = 10, features, data) => {
       }, 0) / chunk.length;
     return compare;
   });
+  console.timeEnd('testing');
   return comparisons.reduce((a, b) => a + b, 0) / folds;
 };
 

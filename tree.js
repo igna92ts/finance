@@ -102,7 +102,7 @@ const getSample = (size, data) => {
 
 const buildForest = (features, data) => {
   const forest = [];
-  const forestSize = 100;
+  const forestSize = 120;
   for (let i = 0; i < forestSize; i++) {
     console.log(`CREATING TREE ${i} OF ${forestSize}`);
     const sample = getSample(data.length, data);
