@@ -1,5 +1,7 @@
 const Random = require('random-js'),
-  mt = Random.engines.mt19937().autoSeed();
+  mt = Random.engines.mt19937().autoSeed(),
+  memoize = require('fast-memoize'),
+  { profile } = require('./helpers');
 
 const pickRandomElement = array => Random.pick(mt, array);
 const pickRandomElements = (count, array) => {
@@ -50,44 +52,44 @@ const informationGain = (left, right, currentUncertainty) => {
   return currentUncertainty - p * gini(left) - (1 - p) * gini(right);
 };
 
-const findBestSplit = data => {
+const findBestSplit = (features, data) => {
   const currentUncertainty = gini(data);
+  let matched = [];
+  let rest = [];
 
-  return Object.keys(data[0])
-    .filter(e => e !== 'action')
-    .reduce(
-      (finalResult, key) => {
-        const values = getUniqueValues(key, data);
-        const newResult = values.reduce(
-          (result, v) => {
-            const question = createQuestion(key, v);
-            const [matched, rest] = partition(data, question);
+  return features.reduce(
+    (finalResult, key) => {
+      const values = getUniqueValues(key, data);
+      const newResult = values.reduce(
+        (result, v) => {
+          const question = createQuestion(key, v);
+          [matched, rest] = partition(data, question);
 
-            if (matched.length === 0 || rest.length === 0) return result;
+          if (matched.length === 0 || rest.length === 0) return result;
 
-            const gain = informationGain(matched, rest, currentUncertainty);
+          const gain = informationGain(matched, rest, currentUncertainty);
 
-            if (gain >= result.gain) return { question, gain };
-            return result;
-          },
-          { gain: 0, question: d => d }
-        );
-        if (newResult.gain >= finalResult.gain) return newResult;
-        else return finalResult;
-      },
-      { gain: 0, question: d => d }
-    );
+          if (gain >= result.gain) return { question, gain, matched, rest };
+          return result;
+        },
+        { gain: 0, question: d => d }
+      );
+      if (newResult.gain >= finalResult.gain) return newResult;
+      else return finalResult;
+    },
+    { gain: 0, question: d => d, matched, rest }
+  );
 };
 
-const buildTree = data => {
-  const split = findBestSplit(data);
+const buildTree = (features, data) => {
+  const split = findBestSplit(features, data);
   if (split.gain === 0) {
     return newData => calculateClassProportion(getUniqueValues('action', data), data);
   }
-  const [matched, rest] = partition(data, split.question);
+  const { matched, rest } = split;
 
-  const matchedQuestion = buildTree(matched);
-  const restQuestion = buildTree(rest);
+  const matchedQuestion = buildTree(features, matched);
+  const restQuestion = buildTree(features, rest);
   return newValue => (split.question(newValue) ? matchedQuestion(newValue) : restQuestion(newValue));
 };
 
@@ -106,6 +108,7 @@ const buildForest = (features, data) => {
     console.log(`CREATING TREE ${i} OF ${forestSize}`);
     const sample = getSample(data.length, data);
     const tree = buildTree(
+      features,
       sample.map(s => {
         const rnd = pickRandomElements(getRandomInt(1, features.length), features);
         const result = rnd.reduce((t, e) => ({ ...t, [e]: s[e] }), {});

@@ -56,14 +56,14 @@ const differenceTrades = trades => {
   }, []);
 };
 
-const percentageDifference = trades => {
+const percentageDifference = (trades, label = 'price') => {
   return trades.reduce((res, t, index) => {
     if (index > 0) {
       const difference = t.price - trades[index - 1].price;
-      const percent = (difference * 100) / trades[index - 1].price;
+      const percent = difference * 100 / trades[index - 1].price;
       res.push({
         realPrice: t.price,
-        price: percent,
+        [label]: percent,
         time: t.time
       });
     }
@@ -71,7 +71,7 @@ const percentageDifference = trades => {
   }, []);
 };
 
-const movingAvg = (trades, time) => {
+const movingAvg = (trades, time, label = 'MA') => {
   // time in seconds
   return trades.map((t, index) => {
     let temp = 0;
@@ -85,20 +85,20 @@ const movingAvg = (trades, time) => {
     }
     return {
       ...t,
-      MA: temp / divider
+      [label]: temp / divider
     };
   });
 };
 
-const expMovingAvg = (mArray, mRange) => {
+const expMovingAvg = (mArray, mRange, label = 'EMA') => {
   const k = 2 / (mRange + 1);
   // first item is just the same as the first item in the input
-  const emaArray = [{ ...mArray[0], EMA: mArray[0].price }];
+  const emaArray = [{ ...mArray[0], [label]: mArray[0].price }];
   // for the rest of the items, they are computed with the previous one
   for (let i = 1; i < mArray.length; i++) {
     emaArray.push({
       ...mArray[i],
-      EMA: mArray[i].price * k + emaArray[i - 1].EMA * (1 - k)
+      [label]: mArray[i].price * k + emaArray[i - 1][label] * (1 - k)
     });
   }
   return emaArray;
@@ -109,7 +109,7 @@ const diffNumbers = (num1, num2) => {
   else return num2 - num1;
 };
 
-const relStrIndex = (trades, time) => {
+const relStrIndex = (trades, time, label = 'RSI') => {
   const rsiArray = [];
   let lastAvgGain = 0;
   let lastAvgLoss = 0;
@@ -140,7 +140,7 @@ const relStrIndex = (trades, time) => {
     const firstRsi = 100 - 100 / (1 + firstRs);
     rsiArray.push({
       ...t,
-      RSI: index < time ? 50 : firstRsi
+      [label]: index < time ? 50 : firstRsi
     });
   });
   return rsiArray;
@@ -177,7 +177,7 @@ const expectedAction = trades => {
         }
       }
       return [...res, { ...t, action: 'NOTHING' }];
-    } else if (newTrades[TRANSACTION_TIME].realPrice < t.realPrice){
+    } else if (newTrades[TRANSACTION_TIME].realPrice < t.realPrice) {
       return [...res, { ...t, action: 'SELL' }];
     } else {
       return [...res, { ...t, action: 'NOTHING' }];
@@ -192,7 +192,7 @@ const calculateReturns = trades => {
   };
   trades.forEach(t => {
     if (t.action === 'BUY' && money.USD > 0) {
-      money.CUR += (money.USD * 0.1) / (t.realPrice + t.realPrice * 0.001); // I add a little to buy it fast
+      money.CUR += money.USD * 0.1 / (t.realPrice + t.realPrice * 0.001); // I add a little to buy it fast
       money.USD -= money.USD * 0.1;
     }
     if (t.action === 'SELL') {
@@ -245,20 +245,30 @@ const changeTime = trades => {
 
 const arima = async () => {
   console.log('FETCHING');
-  const tradeData = await fetchTrades(1000); // newest is last
+  const tradeData = await fetchTrades(100); // newest is last
   const data = pipe(
     tradeData,
-    [percentageDifference],
-    [expMovingAvg, 60],
-    [relStrIndex, 60],
-    [movingAvg, 60],
+    [percentageDifference, 'price'],
+    [expMovingAvg, 60, 'EMA60'],
+    [expMovingAvg, 120, 'EMA120'],
+    [expMovingAvg, 240, 'EMA240'],
+    [relStrIndex, 60, 'RSI60'],
+    [relStrIndex, 120, 'RSI120'],
+    [relStrIndex, 240, 'RSI240'],
+    [movingAvg, 60, 'MA60'],
+    [movingAvg, 120, 'MA120'],
+    [movingAvg, 240, 'MA240'],
     [expectedAction],
     [changeTime]
   );
   // const returns = calculateReturns(ultimateArr);
   // const maxReturns = calculateMaxReturns(ultimateArr);
   // const forest = rndForest.buildForest(['MA', 'EMA', 'RSI', 'price', 'time'], data.slice(0, data.length / 2));
-  const validation = validator.validate(10, ['MA', 'EMA', 'RSI', 'price', 'time'], data);
+  const validation = validator.validate(
+    10,
+    ['MA60', 'MA120', 'MA240', 'EMA60', 'EMA120', 'EMA240', 'RSI60', 'RSI120', 'RSI240', 'price', 'time'],
+    data
+  );
   console.log('TERMINO');
   debugger;
 };

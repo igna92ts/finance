@@ -46,7 +46,38 @@ const pipe = (initial, ...foos) => {
   }, initial);
 };
 
+const profile = (foo, note) => {
+  const tracking = {};
+  return (...params) => {
+    const start = process.hrtime();
+    const result = foo(...params);
+    const precision = 3; // 3 decimal places
+    const elapsed = process.hrtime(start)[1] / 1000000; // divide by a million to get nano to milli
+    if (tracking[note]) {
+      tracking[note].totalS += process.hrtime(start)[0];
+      tracking[note].elapsed += elapsed;
+      tracking[note].count++;
+    } else {
+      tracking[note] = {
+        totalS: process.hrtime(start)[0],
+        elapsed,
+        count: 1
+      };
+    }
+    console.clear();
+    Object.keys(tracking).forEach(k => {
+      console.log(
+        `${tracking[k].totalS / tracking[k].count}s, ${(tracking[k].elapsed / tracking[k].count).toFixed(
+          precision
+        )}ms - ${note}`
+      ); // print message + time
+    });
+    return result;
+  };
+};
+
 module.exports = {
+  profile,
   chunkArray,
   pipe,
   memoize,
