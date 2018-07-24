@@ -1,6 +1,5 @@
 const Random = require('random-js'),
-  mt = Random.engines.mt19937().autoSeed(),
-  { memoize } = require('./helpers');
+  mt = Random.engines.mt19937().autoSeed();
 
 const pickRandomElement = array => Random.pick(mt, array);
 const pickRandomElements = (count, array) => {
