@@ -46,8 +46,8 @@ const pipe = (initial, ...foos) => {
   }, initial);
 };
 
+const tracking = {};
 const profile = (foo, note) => {
-  const tracking = {};
   return (...params) => {
     const start = process.hrtime();
     const result = foo(...params);
@@ -69,7 +69,7 @@ const profile = (foo, note) => {
       console.log(
         `${tracking[k].totalS / tracking[k].count}s, ${(tracking[k].elapsed / tracking[k].count).toFixed(
           precision
-        )}ms - ${note}`
+        )}ms - ${k}`
       ); // print message + time
     });
     return result;
