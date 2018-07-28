@@ -40,7 +40,11 @@ const partition = (data, question) => {
 };
 
 const gini = data => {
-  const uniqueValues = getUniqueValues('action', data);
+  // const uniqueValues = getUniqueValues('action', data);
+  const uniqueValues = ['NOTHING', 'SELL', 'BUY'].reduce(
+    (res, e) => (data.some(d => d.action === e) ? [...res, e] : res),
+    []
+  );
   return uniqueValues.reduce((impurity, val) => {
     const prob = data.filter(e => e.action === val).length / data.length;
     return impurity - prob ** 2; // Math.pow(prob, 2);
@@ -109,11 +113,12 @@ const buildForest = (features, data) => {
     const sample = getSample(data.length, data);
     const rnd = pickRandomElements(getRandomInt(1, features.length), features);
     const tree = buildTree(
-      features,
-      sample.map(s => {
-        const result = rnd.reduce((t, e) => ({ ...t, [e]: s[e] }), {});
-        return { ...result, action: s.action };
-      })
+      rnd,
+      sample
+      // sample.map(s => {
+      //   const result = rnd.reduce((t, e) => ({ ...t, [e]: s[e] }), {});
+      //   return { ...result, action: s.action };
+      // })
     );
     forest.push(tree);
   }
