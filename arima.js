@@ -245,7 +245,7 @@ const changeTime = trades => {
 
 const arima = async () => {
   console.log('FETCHING');
-  const tradeData = await fetchTrades(2000); // newest is last
+  const tradeData = await fetchTrades(20); // newest is last
   const data = pipe(
     tradeData,
     [percentageDifference, 'price'],
@@ -264,8 +264,8 @@ const arima = async () => {
   // const returns = calculateReturns(ultimateArr);
   // const maxReturns = calculateMaxReturns(ultimateArr);
   // const forest = rndForest.buildForest(['MA', 'EMA', 'RSI', 'price', 'time'], data.slice(0, data.length / 2));
-  const validation = validator.validate(
-    10,
+  const validation = await validator.validate(
+    4,
     ['MA60', 'MA120', 'MA240', 'EMA60', 'EMA120', 'EMA240', 'RSI60', 'RSI120', 'RSI240', 'price', 'time'],
     data
   );

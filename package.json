@@ -19,6 +19,7 @@
     "fast-memoize": "^2.5.1",
     "jsonfile": "^4.0.0",
     "moment": "^2.20.1",
+    "napajs": "^0.2.3",
     "neataptic": "^1.4.7",
     "plotly": "^1.0.6",
     "random-js": "^1.0.8",

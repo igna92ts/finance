@@ -26,13 +26,13 @@ const classify = (forest, trade) => {
   });
 };
 
-const validate = (folds = 10, features, data) => {
+const validate = async (folds = 10, features, data) => {
   console.time('testing');
   const chunked = chunkArray(data, folds);
-  const comparisons = chunked.map((chunk, index) => {
+  const comparisonPromises = chunked.map(async (chunk, index) => {
     console.log(`FOLD NUMBER ${index}`);
     const trainingData = mergeWithout(index, chunked);
-    const forest = rndForest.buildForest(features, trainingData);
+    const forest = await rndForest.buildForest(features, trainingData);
     const results = chunk.map(c => classify(forest, c));
     const compare =
       chunk.reduce((sum, c, i) => {
@@ -42,6 +42,7 @@ const validate = (folds = 10, features, data) => {
     return compare;
   });
   console.timeEnd('testing');
+  const comparisons = await Promise.all(comparisonPromises);
   return comparisons.reduce((a, b) => a + b, 0) / folds;
 };
 

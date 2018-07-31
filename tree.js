@@ -1,4 +1,6 @@
 const Random = require('random-js'),
+  napa = require('napajs'),
+  zone = napa.zone.create('zone', { workers: 2 }),
   mt = Random.engines.mt19937().autoSeed(),
   memoize = require('fast-memoize'),
   { profile } = require('./helpers');
@@ -25,14 +27,14 @@ const getUniqueValues = (key, data) => {
 };
 
 const createQuestion = (key, value) => {
-  if (typeof value === 'string') return e => e[key] === value;
-  else return e => e[key] >= value;
+  if (typeof value === 'string') return `e => e[${key}] === ${value}`;
+  else return `e => e[${key}] >= ${value}`;
 };
 
 const partition = (data, question) => {
   return data.reduce(
     (acc, e) => {
-      acc[question(e) ? 0 : 1].push(e);
+      acc[eval(question)(e) ? 0 : 1].push(e);
       return acc;
     },
     [[], []]
@@ -94,7 +96,8 @@ const buildTree = (features, data) => {
 
   const matchedQuestion = buildTree(features, matched);
   const restQuestion = buildTree(features, rest);
-  return newValue => (split.question(newValue) ? matchedQuestion(newValue) : restQuestion(newValue));
+  const question = split.question;
+  return `newValue => ((${question})(newValue) ? (${matchedQuestion})(newValue) : (${restQuestion})(newValue))`;
 };
 
 const getSample = (size, data) => {
@@ -105,24 +108,43 @@ const getSample = (size, data) => {
   return sample;
 };
 
-const buildForest = (features, data) => {
-  const forest = [];
-  const forestSize = 120;
-  for (let i = 0; i < forestSize; i++) {
-    console.log(`CREATING TREE ${i} OF ${forestSize}`);
-    const sample = getSample(data.length, data);
-    const rnd = pickRandomElements(getRandomInt(1, features.length), features);
-    const tree = buildTree(
-      rnd,
-      sample
-      // sample.map(s => {
-      //   const result = rnd.reduce((t, e) => ({ ...t, [e]: s[e] }), {});
-      //   return { ...result, action: s.action };
-      // })
-    );
-    forest.push(tree);
+const parallelTree = async (features, data) => {
+  try {
+    console.log('TREE');
+    const zone = global.napa.zone.get('zone');
+    const sample = await zone.execute('', 'getSample', [data.length, data]);
+    const randomInt = await zone.execute('', 'getRandomInt', [1, features.length]);
+    const rnd = await zone.execute('', 'pickRandomElements', [randomInt.value, features]);
+    const tree = await zone.execute('', 'buildTree', [rnd.value, sample.value]);
+    return tree.value;
+  } catch (err) {
+    console.log(err);
   }
-  return forest;
+};
+
+zone.broadcast(`
+  var Random = require('random-js');
+  var napa = require('napajs');
+  var mt = Random.engines.mt19937().autoSeed();
+`);
+zone.broadcast(`var ${getSample.name} = ${getSample.toString()};`);
+zone.broadcast(`var ${pickRandomElement.name} = ${pickRandomElement.toString()};`);
+zone.broadcast(`var ${pickRandomElements.name} = ${pickRandomElements.toString()};`);
+zone.broadcast(`var ${getRandomInt.name} = ${getRandomInt.toString()};`);
+zone.broadcast(`var ${buildTree.name} = ${buildTree.toString()};`);
+zone.broadcast(`var ${findBestSplit.name} = ${findBestSplit.toString()};`);
+zone.broadcast(`var ${gini.name} = ${gini.toString()};`);
+zone.broadcast(`var ${informationGain.name} = ${informationGain.toString()};`);
+zone.broadcast(`var ${getUniqueValues.name} = ${getUniqueValues.toString()};`);
+zone.broadcast(`var ${createQuestion.name} = ${createQuestion.toString()};`);
+zone.broadcast(`var ${partition.name} = ${partition.toString()};`);
+const buildForest = async (features, data) => {
+  const forestPromises = [];
+  const forestSize = 20;
+  for (let i = 0; i < forestSize; i++) {
+    forestPromises.push(zone.execute(parallelTree, [[...features], [...data]]));
+  }
+  return Promise.all(forestPromises).then(results => results.map(r => r.value));
 };
 // buildForest(['color', 'diameter'], [
 //   { color: 'green', diameter: 3, action: 'apple' },
