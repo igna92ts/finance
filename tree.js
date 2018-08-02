@@ -1,6 +1,6 @@
 const Random = require('random-js'),
   napa = require('napajs'),
-  zone = napa.zone.create('zone', { workers: 2 }),
+  zone = napa.zone.create('zone', { workers: 20 }),
   mt = Random.engines.mt19937().autoSeed(),
   memoize = require('fast-memoize'),
   { profile } = require('./helpers');
@@ -27,14 +27,14 @@ const getUniqueValues = (key, data) => {
 };
 
 const createQuestion = (key, value) => {
-  if (typeof value === 'string') return `e => e[${key}] === ${value}`;
-  else return `e => e[${key}] >= ${value}`;
+  if (typeof value === 'string') return `e => e['${key}'] === ${value}`;
+  else return `e => e['${key}'] >= ${value}`;
 };
 
 const partition = (data, question) => {
   return data.reduce(
     (acc, e) => {
-      acc[eval(question)(e) ? 0 : 1].push(e);
+      acc[(eval(question))(e) ? 0 : 1].push(e);
       return acc;
     },
     [[], []]
@@ -68,6 +68,7 @@ const findBestSplit = (features, data) => {
       const values = getUniqueValues(key, data);
       const newResult = values.reduce(
         (result, v) => {
+          // EL PROBLEMA ESTA EN ESTE
           const question = createQuestion(key, v);
           [matched, rest] = partition(data, question);
 
@@ -88,15 +89,16 @@ const findBestSplit = (features, data) => {
 };
 
 const buildTree = (features, data) => {
+  console.log('NEW ONE', new Date());
   const split = findBestSplit(features, data);
   if (split.gain === 0) {
-    return newData => calculateClassProportion(getUniqueValues('action', data), data);
+    return calculateClassProportion(getUniqueValues('action', data), data);
   }
   const { matched, rest } = split;
 
   const matchedQuestion = buildTree(features, matched);
   const restQuestion = buildTree(features, rest);
-  const question = split.question;
+  const { question } = split;
   return `newValue => ((${question})(newValue) ? (${matchedQuestion})(newValue) : (${restQuestion})(newValue))`;
 };
 
@@ -110,7 +112,6 @@ const getSample = (size, data) => {
 
 const parallelTree = async (features, data) => {
   try {
-    console.log('TREE');
     const zone = global.napa.zone.get('zone');
     const sample = await zone.execute('', 'getSample', [data.length, data]);
     const randomInt = await zone.execute('', 'getRandomInt', [1, features.length]);
@@ -118,7 +119,7 @@ const parallelTree = async (features, data) => {
     const tree = await zone.execute('', 'buildTree', [rnd.value, sample.value]);
     return tree.value;
   } catch (err) {
-    console.log(err);
+    console.log('parallelTree', err);
   }
 };
 
@@ -138,9 +139,10 @@ zone.broadcast(`var ${informationGain.name} = ${informationGain.toString()};`);
 zone.broadcast(`var ${getUniqueValues.name} = ${getUniqueValues.toString()};`);
 zone.broadcast(`var ${createQuestion.name} = ${createQuestion.toString()};`);
 zone.broadcast(`var ${partition.name} = ${partition.toString()};`);
+zone.broadcast(`var ${calculateClassProportion.name} = ${calculateClassProportion.toString()};`);
 const buildForest = async (features, data) => {
   const forestPromises = [];
-  const forestSize = 20;
+  const forestSize = 120;
   for (let i = 0; i < forestSize; i++) {
     forestPromises.push(zone.execute(parallelTree, [[...features], [...data]]));
   }
