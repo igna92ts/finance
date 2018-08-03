@@ -245,7 +245,7 @@ const changeTime = trades => {
 
 const arima = async () => {
   console.log('FETCHING');
-  const tradeData = await fetchTrades(2000); // newest is last
+  const tradeData = await fetchTrades(20); // newest is last
   const data = pipe(
     tradeData,
     [percentageDifference, 'price'],

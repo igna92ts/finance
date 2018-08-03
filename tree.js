@@ -107,19 +107,12 @@ const getSample = (size, data) => {
 
 const buildForest = (features, data) => {
   const forest = [];
-  const forestSize = 120;
+  const forestSize = 128;
   for (let i = 0; i < forestSize; i++) {
     console.log(`CREATING TREE ${i} OF ${forestSize}`);
     const sample = getSample(data.length, data);
     const rnd = pickRandomElements(getRandomInt(1, features.length), features);
-    const tree = buildTree(
-      rnd,
-      sample
-      // sample.map(s => {
-      //   const result = rnd.reduce((t, e) => ({ ...t, [e]: s[e] }), {});
-      //   return { ...result, action: s.action };
-      // })
-    );
+    const tree = buildTree(rnd, sample);
     forest.push(tree);
   }
   return forest;
