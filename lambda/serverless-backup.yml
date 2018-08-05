@@ -1,0 +1,17 @@
+service: test-service # NOTE: update this with your service name
+
+provider:
+  name: aws
+  runtime: nodejs8.10
+
+plugins:
+  - serverless-offline
+
+functions:
+  createTree1:
+    handler: handler.createTree
+    events:
+      - http:
+          path: create_tree1
+          method: post
+          cors: true

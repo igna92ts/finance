@@ -1,7 +1,7 @@
 const Random = require('random-js'),
   mt = Random.engines.mt19937().autoSeed(),
   memoize = require('fast-memoize'),
-  { profile } = require('./helpers');
+  request = require('request');
 
 const pickRandomElement = array => Random.pick(mt, array);
 const pickRandomElements = (count, array) => {
@@ -13,90 +13,6 @@ const pickRandomElements = (count, array) => {
 };
 const getRandomInt = (min, max) => Random.integer(min, max)(mt);
 
-const calculateClassProportion = (classArray, data) => {
-  return classArray.reduce((t, e) => {
-    const filteredData = data.filter(d => d.action === e);
-    return { ...t, [e]: filteredData.length / data.length };
-  }, {});
-};
-
-const getUniqueValues = (key, data) => {
-  return Array.from(new Set(data.map(e => e[key])));
-};
-
-const createQuestion = (key, value) => {
-  if (typeof value === 'string') return e => e[key] === value;
-  else return e => e[key] >= value;
-};
-
-const partition = (data, question) => {
-  return data.reduce(
-    (acc, e) => {
-      acc[question(e) ? 0 : 1].push(e);
-      return acc;
-    },
-    [[], []]
-  );
-};
-
-const gini = data => {
-  // const uniqueValues = getUniqueValues('action', data);
-  const uniqueValues = ['NOTHING', 'SELL', 'BUY'].reduce(
-    (res, e) => (data.some(d => d.action === e) ? [...res, e] : res),
-    []
-  );
-  return uniqueValues.reduce((impurity, val) => {
-    const prob = data.filter(e => e.action === val).length / data.length;
-    return impurity - prob ** 2; // Math.pow(prob, 2);
-  }, 1);
-};
-
-const informationGain = (left, right, currentUncertainty) => {
-  const p = left.length / (left.length + right.length);
-  return currentUncertainty - p * gini(left) - (1 - p) * gini(right);
-};
-
-const findBestSplit = (features, data) => {
-  const currentUncertainty = gini(data);
-  let matched = [];
-  let rest = [];
-
-  return features.reduce(
-    (finalResult, key) => {
-      const values = getUniqueValues(key, data);
-      const newResult = values.reduce(
-        (result, v) => {
-          const question = createQuestion(key, v);
-          [matched, rest] = partition(data, question);
-
-          if (matched.length === 0 || rest.length === 0) return result;
-
-          const gain = informationGain(matched, rest, currentUncertainty);
-
-          if (gain >= result.gain) return { question, gain, matched, rest };
-          return result;
-        },
-        { gain: 0, question: d => d }
-      );
-      if (newResult.gain >= finalResult.gain) return newResult;
-      else return finalResult;
-    },
-    { gain: 0, question: d => d, matched, rest }
-  );
-};
-
-const buildTree = (features, data) => {
-  const split = findBestSplit(features, data);
-  if (split.gain === 0) {
-    return newData => calculateClassProportion(getUniqueValues('action', data), data);
-  }
-  const { matched, rest } = split;
-
-  const matchedQuestion = buildTree(features, matched);
-  const restQuestion = buildTree(features, rest);
-  return newValue => (split.question(newValue) ? matchedQuestion(newValue) : restQuestion(newValue));
-};
-
 const getSample = (size, data) => {
   const sample = [];
   for (let i = 0; i < size; i++) {
@@ -105,17 +21,42 @@ const getSample = (size, data) => {
   return sample;
 };
 
-const buildForest = (features, data) => {
-  const forest = [];
+const buildTree = (features, data, fold, count) => {
+  return new Promise((resolve, reject) => {
+    request.post(
+      {
+        // url: 'http://localhost:3000/create_tree',
+        url: 'https://www.igna92ts.com/finance/create_tree',
+        json: true,
+        body: { features, data }
+      },
+      (err, res, body) => {
+        if (err) {
+          console.log(err, body);
+          return reject(err);
+        } else {
+          console.log(`CREATED TREE FOLD ${fold} NUMBER ${count}`);
+          return resolve(body.tree);
+        }
+      }
+    );
+  });
+};
+
+const buildForest = (features, data, fold) => {
+  const forestPromises = [];
   const forestSize = 128;
   for (let i = 0; i < forestSize; i++) {
-    console.log(`CREATING TREE ${i} OF ${forestSize}`);
     const sample = getSample(data.length, data);
     const rnd = pickRandomElements(getRandomInt(1, features.length), features);
-    const tree = buildTree(rnd, sample);
-    forest.push(tree);
+    const tree = buildTree(rnd, sample, fold, i);
+    forestPromises.push(tree);
   }
-  return forest;
+  return Promise.all(forestPromises).then(forest => {
+    return forest.map(t => {
+      return trade => eval(t)(trade);
+    });
+  });
 };
 // buildForest(['color', 'diameter'], [
 //   { color: 'green', diameter: 3, action: 'apple' },
@@ -125,10 +66,7 @@ const buildForest = (features, data) => {
 //   { color: 'yellow', diameter: 3, action: 'lemon' }
 // ]);
 
-module.exports = {
-  buildTree,
-  buildForest
-};
+module.exports = { buildForest };
 // const tree = buildTree([
 //   { color: 'green', diameter: 3, action: 'apple' },
 //   { color: 'yellow', diameter: 3, action: 'apple' },
