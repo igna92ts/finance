@@ -5,7 +5,7 @@ const moment = require('moment'),
   chart = require('./chart'),
   { roundTime, pipe } = require('./helpers'),
   validator = require('./validator'),
-  rndForest = require('./tree');
+  rndForest = require('./forest');
 
 const TIME_CONSTRAINT = 'minutes';
 const TIME_MS = 60000;

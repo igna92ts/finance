@@ -58,23 +58,5 @@ const buildForest = (features, data, fold) => {
     });
   });
 };
-// buildForest(['color', 'diameter'], [
-//   { color: 'green', diameter: 3, action: 'apple' },
-//   { color: 'yellow', diameter: 3, action: 'apple' },
-//   { color: 'red', diameter: 1, action: 'grape' },
-//   { color: 'red', diameter: 1, action: 'grape' },
-//   { color: 'yellow', diameter: 3, action: 'lemon' }
-// ]);
 
 module.exports = { buildForest };
-// const tree = buildTree([
-//   { color: 'green', diameter: 3, action: 'apple' },
-//   { color: 'yellow', diameter: 3, action: 'apple' },
-//   { color: 'red', diameter: 1, action: 'grape' },
-//   { color: 'red', diameter: 1, action: 'grape' },
-//   { color: 'yellow', diameter: 3, action: 'lemon' },
-// ]);
-// const result = tree({ color: 'red', diameter: 1 });
-// const result2 = tree({ color: 'yellow', diameter: 3 });
-// const result3 = tree({ color: 'yellow', diameter: 1 });
-// console.log(result, result);
