@@ -5,10 +5,11 @@ const moment = require('moment'),
   chart = require('./chart'),
   { roundTime, pipe } = require('./helpers'),
   validator = require('./validator'),
-  rndForest = require('./forest');
+  rndForest = require('./forest'),
+  aws = require('./amazon');
 
-const TIME_CONSTRAINT = 'minutes';
-const TIME_MS = 60000;
+const TIME_CONSTRAINT = 'seconds';
+const TIME_MS = 1000;
 
 const getPricesPerTimestep = historicalTrades => {
   let initialTime = roundTime(historicalTrades[0].time, 1, TIME_CONSTRAINT, 'floor');
@@ -60,7 +61,7 @@ const percentageDifference = (trades, label = 'price') => {
   return trades.reduce((res, t, index) => {
     if (index > 0) {
       const difference = t.price - trades[index - 1].price;
-      const percent = difference * 100 / trades[index - 1].price;
+      const percent = (difference * 100) / trades[index - 1].price;
       res.push({
         realPrice: t.price,
         [label]: percent,
@@ -244,7 +245,7 @@ const changeTime = trades => {
 };
 
 const arima = async () => {
-  const tradeData = await fetchTrades(1000); // newest is last
+  const tradeData = await fetchTrades(50000); // newest is last
   const data = pipe(
     tradeData,
     [percentageDifference, 'price'],

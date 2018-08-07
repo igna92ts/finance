@@ -1,5 +1,5 @@
 const { chunkArray } = require('../helpers'),
-  rndForest = require('../tree');
+  rndForest = require('../forest');
 
 const mergeWithout = (index, chunks) => {
   return chunks.reduce((res, chunk, i) => {
