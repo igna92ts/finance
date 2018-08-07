@@ -27,7 +27,6 @@ const classify = (forest, trade) => {
 };
 
 const validate = async (folds = 10, features, data) => {
-  console.time('testing');
   const chunked = chunkArray(data, folds);
   const comparisonPromises = chunked.map(async (chunk, index) => {
     const trainingData = mergeWithout(index, chunked);
@@ -40,7 +39,6 @@ const validate = async (folds = 10, features, data) => {
       }, 0) / chunk.length;
     return compare;
   });
-  console.timeEnd('testing');
   const comparisons = await Promise.all(comparisonPromises);
   return comparisons.reduce((a, b) => a + b, 0) / folds;
 };

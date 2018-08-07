@@ -33,6 +33,7 @@ const buildTree = (features, data, fold, count) => {
       },
       (err, res, body) => {
         if (err) {
+          logger.error(err);
           return reject(err);
         } else {
           logger.progress(`forest-${fold}`).tick(1);
@@ -53,11 +54,13 @@ const buildForest = (features, data, fold) => {
     const tree = buildTree(rnd, sample, fold, i);
     forestPromises.push(tree);
   }
-  return Promise.all(forestPromises).then(forest => {
-    return forest.map(t => {
-      return trade => eval(t)(trade);
-    });
-  });
+  return Promise.all(forestPromises)
+    .then(forest => {
+      return forest.map(t => {
+        return trade => eval(t)(trade);
+      });
+    })
+    .catch(logger.error);
 };
 
 module.exports = { buildForest };

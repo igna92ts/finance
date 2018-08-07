@@ -1,5 +1,6 @@
 const winston = require('winston'),
-  ProgressBar = require('progress'),
+  MultiProgress = require('multi-progress'),
+  multi = new MultiProgress(process.stderr),
   ora = require('ora'),
   fs = require('fs'),
   logDir = `${__dirname}/logs`;
@@ -41,7 +42,7 @@ logger.spinner = ora;
 const progressBars = {};
 logger.progress = (key, total, message = '') => {
   if (!progressBars[key]) {
-    progressBars[key] = new ProgressBar(` ${message} [:bar] :percent :etas`, {
+    progressBars[key] = multi.newBar(` ${message} [:bar] :percent :etas`, {
       complete: '=',
       incomplete: ' ',
       width: 100,
