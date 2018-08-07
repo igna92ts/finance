@@ -1,6 +1,7 @@
 const AWS = require('aws-sdk'),
   JSZip = require('jszip'),
-  zip = new JSZip();
+  zip = new JSZip(),
+  logger = require('../logger');
 
 require('dotenv').config();
 
@@ -13,7 +14,8 @@ AWS.config.update({
 });
 const s3 = new AWS.S3();
 
-const uploadData = async data => {
+const zipFile = async data => {
+  const spinner = logger.spinner('Compressing data').start();
   zip.file('data.json', JSON.stringify(data));
   const fileData = await zip.generateAsync({
     type: 'uint8array',
@@ -23,15 +25,33 @@ const uploadData = async data => {
     }
   });
   const buffer = Buffer.from(fileData, 'uint8array');
+  spinner.succeed();
+  return buffer;
+};
+
+const unzipFile = async data => {
+  const spinner = logger.spinner('Uncompressing data').start();
+  const zipData = await JSZip.loadAsync(data.Body);
+  const file = await zipData.file('data.json').async('string');
+  const parsedData = JSON.parse(file);
+  spinner.succeed();
+  return parsedData;
+};
+
+const uploadData = async data => {
   const params = {
-    Body: buffer,
+    Body: zipFile(data),
     Bucket: bucketName,
     Key: 'data.zip'
   };
+  const spinner = logger.spinner('Uploading zip file').start();
   return new Promise((resolve, reject) => {
     s3.putObject(params, (err, result) => {
-      if (err) reject(err);
-      else resolve(result);
+      if (err) return reject(err);
+      else {
+        spinner.succeed();
+        return resolve(result);
+      }
     });
   });
 };
@@ -41,13 +61,13 @@ const getData = () => {
     Bucket: bucketName,
     Key: 'data.zip'
   };
+  const spinner = logger.spinner('Downloading zip file');
   return new Promise((resolve, reject) => {
     s3.getObject(params, async (err, result) => {
       if (err) return reject(err);
       else {
-        const zipData = await JSZip.loadAsync(result.Body);
-        const file = await zipData.file('data.json').async('string');
-        return resolve(JSON.parse(file));
+        spinner.succeed();
+        return resolve(unzipFile(result));
       }
     });
   });
