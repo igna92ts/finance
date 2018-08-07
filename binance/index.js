@@ -1,7 +1,8 @@
 const request = require('request'),
   webSocket = require('ws'),
   moment = require('moment'),
-  { diffTimes } = require('../helpers');
+  { diffTimes } = require('../helpers'),
+  logger = require('../logger');
 
 const key = '8tc4fJ1ddM2VmnbFzTk3f7hXsrehnT8wP7u6EdIoVq7gyXWiL852TP1wnKp0qaGM';
 const symbol = 'eosbtc';
@@ -65,6 +66,7 @@ const formatTransaction = (transaction, btcPrice) => {
 };
 
 exports.fetchTrades = (amount, accumulator = [], endTime = 0) => {
+  logger.progress('trades', amount, 'Fetching Transactions');
   let params = '';
   if (accumulator.length > 0) {
     const startTime = moment(endTime).subtract(20, 'minutes').valueOf();
@@ -79,6 +81,7 @@ exports.fetchTrades = (amount, accumulator = [], endTime = 0) => {
       json: true
     }, (err, res, body) => {
       // cambiar por ultimas 24 horas
+      logger.progress('trades').tick(body.length);
       return resolve(exports.fetchBTCPrice().then(btcPrice => {
         const reversed = body.reverse();
         const merged = [...accumulator, ...reversed.map(t => formatTransaction(t, btcPrice))];

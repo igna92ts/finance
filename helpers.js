@@ -1,4 +1,5 @@
-const moment = require('moment');
+const moment = require('moment'),
+  logger = require('./logger');
 
 const memoize = func => {
   const memo = {};
@@ -42,7 +43,10 @@ const chunkArray = (myArray, folds) => {
 
 const pipe = (initial, ...foos) => {
   return foos.reduce((result, f) => {
-    return f[0](result, ...f.slice(1));
+    const spinner = logger.spinner(`${f[0].name} ${f[1] || ''}`).start();
+    const newResult = f[0](result, ...f.slice(1));
+    spinner.succeed();
+    return newResult;
   }, initial);
 };
 

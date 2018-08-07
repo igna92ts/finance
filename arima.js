@@ -6,7 +6,8 @@ const moment = require('moment'),
   { roundTime, pipe } = require('./helpers'),
   validator = require('./validator'),
   rndForest = require('./forest'),
-  aws = require('./amazon');
+  aws = require('./amazon'),
+  logger = require('./logger');
 
 const TIME_CONSTRAINT = 'seconds';
 const TIME_MS = 1000;
@@ -245,7 +246,7 @@ const changeTime = trades => {
 };
 
 const arima = async () => {
-  const tradeData = await fetchTrades(50000); // newest is last
+  const tradeData = await fetchTrades(500); // newest is last
   const data = pipe(
     tradeData,
     [percentageDifference, 'price'],
@@ -269,13 +270,13 @@ const arima = async () => {
     ['MA60', 'MA120', 'MA240', 'EMA60', 'EMA120', 'EMA240', 'RSI60', 'RSI120', 'RSI240', 'price', 'time'],
     data
   );
-  console.log(`VALIDATION RESULT ${validation}`);
+  logger.info(`VALIDATION RESULT ${validation}`);
 };
 
 try {
   arima();
 } catch (err) {
-  console.log(err);
+  logger.error(err);
 }
 
 module.exports = {

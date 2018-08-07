@@ -1,7 +1,8 @@
 const Random = require('random-js'),
   mt = Random.engines.mt19937().autoSeed(),
   memoize = require('fast-memoize'),
-  request = require('request');
+  request = require('request'),
+  logger = require('./logger');
 
 const pickRandomElement = array => Random.pick(mt, array);
 const pickRandomElements = (count, array) => {
@@ -32,10 +33,9 @@ const buildTree = (features, data, fold, count) => {
       },
       (err, res, body) => {
         if (err) {
-          console.log(err, body);
           return reject(err);
         } else {
-          console.log(`CREATED TREE FOLD ${fold} NUMBER ${count}`);
+          logger.progress(`forest-${fold}`).tick(1);
           return resolve(body.tree);
         }
       }
@@ -45,7 +45,8 @@ const buildTree = (features, data, fold, count) => {
 
 const buildForest = (features, data, fold) => {
   const forestPromises = [];
-  const forestSize = 128;
+  const forestSize = 8;
+  logger.progress(`forest-${fold}`, forestSize, `Fold #${fold}`);
   for (let i = 0; i < forestSize; i++) {
     const sample = getSample(data.length, data);
     const rnd = pickRandomElements(getRandomInt(1, features.length), features);

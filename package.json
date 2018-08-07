@@ -22,11 +22,14 @@
     "jszip": "^3.1.5",
     "moment": "^2.20.1",
     "neataptic": "^1.4.7",
+    "ora": "^3.0.0",
     "plotly": "^1.0.6",
+    "progress": "^2.0.0",
     "random-js": "^1.0.8",
     "request": "^2.85.0",
     "socket.io": "^2.1.0",
     "synaptic": "^1.1.4",
+    "winston": "^3.0.0",
     "ws": "^5.1.1"
   },
   "devDependencies": {
