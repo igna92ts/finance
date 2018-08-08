@@ -3,7 +3,7 @@ require('babel-polyfill');
 const moment = require('moment'),
   binance = require('./binance'),
   chart = require('./chart'),
-  { roundTime, pipe } = require('./helpers'),
+  { roundTime, pipe, diffTimes } = require('./helpers'),
   validator = require('./validator'),
   rndForest = require('./forest'),
   aws = require('./amazon'),
@@ -41,19 +41,29 @@ const getPricesPerTimestep = historicalTrades => {
   return pricesPerTimestep;
 };
 
-const fillPricesPerTimestep = (historicalTrades, missingTrades) => {
+const fillPricesPerTimestep = (historicalTrades, finishTime, missingTrades) => {
   const missingTradesPerTimestep = getPricesPerTimestep(missingTrades);
-  // agregar los que faltan entre historical y missing
+  return [...historicalTrades, missingTradesPerTimestep.filter(t => t.time > finishTime)];
 };
 
-const fillTrades = async (historicalTrades, finishTime) => {
-  const missingTrades = await binance.fillTrades(finishTime);
-  return fillPricesPerTimestep(historicalTrades, missingTrades);
+const fillTrades = async historicalTrades => {
+  const finishTime = historicalTrades[historicalTrades.length - 1].time;
+  const missingTrades = await binance.fillTransactions(finishTime);
+  return fillPricesPerTimestep(historicalTrades, finishTime, missingTrades);
 };
 
-const fetchTrades = async amount => {
-  const historicalTrades = await binance.fetchTrades(amount);
-  return getPricesPerTimestep(historicalTrades);
+const BASE_FETCH_AMOUNT = 10000;
+const fetchTrades = async () => {
+  const existingTradeData = await aws.getData();
+  if (
+    existingTradeData.length < 0 ||
+    diffTimes(moment().valueOf(), existingTradeData[existingTradeData.length - 1].time) > 2880 // amount of minutes in 2 days
+  ) {
+    const historicalTrades = await binance.fetchTrades(BASE_FETCH_AMOUNT);
+    return getPricesPerTimestep(historicalTrades);
+  } else {
+    return fillTrades(existingTradeData);
+  }
 };
 
 const differenceTrades = trades => {
@@ -256,8 +266,7 @@ const changeTime = trades => {
 };
 
 const arima = async () => {
-  // const existingTradeData = await aws.getData();
-  const tradeData = await binance.fillTransactions(1533685390489);
+  const tradeData = await fetchTrades();
   const data = pipe(
     tradeData,
     [percentageDifference, 'price'],
@@ -273,6 +282,7 @@ const arima = async () => {
     [expectedAction],
     [changeTime]
   );
+  await aws.uploadData(data);
   const validation = await validator.validate(
     10,
     [

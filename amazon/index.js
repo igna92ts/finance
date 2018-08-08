@@ -38,11 +38,12 @@ const unzipFile = async data => {
   return parsedData;
 };
 
-const uploadData = async data => {
+const uploadData = async (data, fileName = 'data') => {
+  const body = await zipFile(data);
   const params = {
-    Body: zipFile(data),
+    Body: body,
     Bucket: bucketName,
-    Key: 'data.zip'
+    Key: `${fileName}.zip`
   };
   const spinner = logger.spinner('Uploading zip file').start();
   return new Promise((resolve, reject) => {
@@ -56,10 +57,10 @@ const uploadData = async data => {
   });
 };
 
-const getData = () => {
+const getData = (fileName = 'data') => {
   const params = {
     Bucket: bucketName,
-    Key: 'data.zip'
+    Key: `${fileName}.zip`
   };
   const spinner = logger.spinner('Downloading zip file').start();
   return new Promise((resolve, reject) => {

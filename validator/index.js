@@ -1,5 +1,6 @@
 const { chunkArray } = require('../helpers'),
-  rndForest = require('../forest');
+  rndForest = require('../forest'),
+  aws = require('../amazon');
 
 const mergeWithout = (index, chunks) => {
   return chunks.reduce((res, chunk, i) => {
@@ -30,7 +31,8 @@ const validate = async (folds = 10, features, data) => {
   const chunked = chunkArray(data, folds);
   const comparisonPromises = chunked.map(async (chunk, index) => {
     const trainingData = mergeWithout(index, chunked);
-    const forest = await rndForest.buildForest(features, trainingData, index);
+    await aws.uploadData(trainingData, `data-fold-${index}`);
+    const forest = await rndForest.buildForest(features, index);
     const results = chunk.map(c => classify(forest, c));
     const compare =
       chunk.reduce((sum, c, i) => {

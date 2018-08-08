@@ -131,7 +131,7 @@ exports.fillTransactions = (finishTime, accumulator = [], endTime = 0) => {
             else if (merged[merged.length - 1].time > finishTime)
               return exports.fillTransactions(finishTime, merged, reversed[reversed.length - 1].T);
             else {
-              return merged.reverse().filter(t => t.time < finishTime);
+              return merged.reverse();
             }
           })
         );
