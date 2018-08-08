@@ -61,7 +61,7 @@ const getData = () => {
     Bucket: bucketName,
     Key: 'data.zip'
   };
-  const spinner = logger.spinner('Downloading zip file');
+  const spinner = logger.spinner('Downloading zip file').start();
   return new Promise((resolve, reject) => {
     s3.getObject(params, async (err, result) => {
       if (err) return reject(err);

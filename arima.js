@@ -41,6 +41,16 @@ const getPricesPerTimestep = historicalTrades => {
   return pricesPerTimestep;
 };
 
+const fillPricesPerTimestep = (historicalTrades, missingTrades) => {
+  const missingTradesPerTimestep = getPricesPerTimestep(missingTrades);
+  // agregar los que faltan entre historical y missing
+};
+
+const fillTrades = async (historicalTrades, finishTime) => {
+  const missingTrades = await binance.fillTrades(finishTime);
+  return fillPricesPerTimestep(historicalTrades, missingTrades);
+};
+
 const fetchTrades = async amount => {
   const historicalTrades = await binance.fetchTrades(amount);
   return getPricesPerTimestep(historicalTrades);
@@ -241,12 +251,13 @@ const estimate = (forest, trade) => {
 const changeTime = trades => {
   return trades.map(t => {
     const time = moment(t.time);
-    return { ...t, time: parseInt(`${time.hours()}${time.minutes()}${time.seconds()}`) };
+    return { ...t, shortTime: parseInt(`${time.hours()}${time.minutes()}${time.seconds()}`) };
   });
 };
 
 const arima = async () => {
-  const tradeData = await fetchTrades(500); // newest is last
+  // const existingTradeData = await aws.getData();
+  const tradeData = await binance.fillTransactions(1533685390489);
   const data = pipe(
     tradeData,
     [percentageDifference, 'price'],
@@ -262,12 +273,21 @@ const arima = async () => {
     [expectedAction],
     [changeTime]
   );
-  // const returns = calculateReturns(ultimateArr);
-  // const maxReturns = calculateMaxReturns(ultimateArr);
-  // const forest = rndForest.buildForest(['MA', 'EMA', 'RSI', 'price', 'time'], data.slice(0, data.length / 2));
   const validation = await validator.validate(
     10,
-    ['MA60', 'MA120', 'MA240', 'EMA60', 'EMA120', 'EMA240', 'RSI60', 'RSI120', 'RSI240', 'price', 'time'],
+    [
+      'MA60',
+      'MA120',
+      'MA240',
+      'EMA60',
+      'EMA120',
+      'EMA240',
+      'RSI60',
+      'RSI120',
+      'RSI240',
+      'price',
+      'shortTime'
+    ],
     data
   );
   logger.info(`VALIDATION RESULT ${validation}`);
