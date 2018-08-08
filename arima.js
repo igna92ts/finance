@@ -62,7 +62,10 @@ const fetchTrades = async () => {
     const historicalTrades = await binance.fetchTrades(BASE_FETCH_AMOUNT);
     return getPricesPerTimestep(historicalTrades);
   } else {
-    return fillTrades(existingTradeData);
+    const spinner = logger.spinner('Filling missing Transactions').start();
+    const trades = await fillTrades(existingTradeData);
+    spinner.succeed();
+    return trades;
   }
 };
 
@@ -214,7 +217,7 @@ const calculateReturns = trades => {
   };
   trades.forEach(t => {
     if (t.action === 'BUY' && money.USD > 0) {
-      money.CUR += money.USD * 0.1 / (t.realPrice + t.realPrice * 0.001); // I add a little to buy it fast
+      money.CUR += (money.USD * 0.1) / (t.realPrice + t.realPrice * 0.001); // I add a little to buy it fast
       money.USD -= money.USD * 0.1;
     }
     if (t.action === 'SELL') {
