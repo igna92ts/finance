@@ -23,14 +23,14 @@ const getUniqueValues = (key, data) => {
 };
 
 const createQuestion = (key, value) => {
-  if (typeof value === 'string') return `e => e['${key}'] === ${value}`;
-  else return `e => e['${key}'] >= ${value}`;
+  if (typeof value === 'string') return { str: `e => e['${key}'] === ${value}`, fn: e => e[key] === value };
+  else return { str: `e => e['${key}'] >= ${value}`, fn: e => e[key] >= value };
 };
 
 const partition = (data, question) => {
   return data.reduce(
     (acc, e) => {
-      acc[(eval(question))(e) ? 0 : 1].push(e);
+      acc[question.fn(e) ? 0 : 1].push(e);
       return acc;
     },
     [[], []]
@@ -74,12 +74,12 @@ const findBestSplit = (features, data) => {
           if (gain >= result.gain) return { question, gain, matched, rest };
           return result;
         },
-        { gain: 0, question: d => d }
+        { gain: 0, question: { fn: d => d, str: `d => d` } }
       );
       if (newResult.gain >= finalResult.gain) return newResult;
       else return finalResult;
     },
-    { gain: 0, question: d => d, matched, rest }
+    { gain: 0, question: { fn: d => d, str: `d => d` }, matched, rest }
   );
 };
 
@@ -95,7 +95,9 @@ const buildTree = (features, data) => {
   const matchedQuestion = buildTree(features, matched);
   const restQuestion = buildTree(features, rest);
   const { question } = split;
-  return `newValue => (${question})(newValue) ? (${matchedQuestion})(newValue) : (${restQuestion})(newValue)`;
+  return `newValue => (${
+    question.str
+  })(newValue) ? (${matchedQuestion})(newValue) : (${restQuestion})(newValue)`;
 };
 
 module.exports = { buildTree };

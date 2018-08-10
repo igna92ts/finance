@@ -8,7 +8,7 @@ require('dotenv').config();
 const bucketName = 'igna92ts-finance';
 
 AWS.config.update({
-  accessKeyId: process.env.AWS_ACCESS_KEY,
+  accessKeyId: process.env.AWS_KEY,
   secretAccessKey: process.env.AWS_SECRET,
   region: 'us-east-1'
 });
@@ -65,9 +65,9 @@ const getData = (fileName = 'data') => {
   const spinner = logger.spinner('Downloading zip file').start();
   return new Promise((resolve, reject) => {
     s3.getObject(params, async (err, result) => {
-      if (err) return reject(err);
+      spinner.succeed();
+      if (err) return resolve([]);
       else {
-        spinner.succeed();
         return resolve(unzipFile(result));
       }
     });

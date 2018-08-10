@@ -16,24 +16,24 @@ const getPricesPerTimestep = historicalTrades => {
   let initialTime = roundTime(historicalTrades[0].time, 1, TIME_CONSTRAINT, 'floor');
   const pricesPerTimestep = [
     {
-      price: historicalTrades[0].price,
+      realPrice: historicalTrades[0].price,
       time: initialTime
     }
   ];
   historicalTrades.forEach(t => {
     const roundedTime = roundTime(t.time, 1, TIME_CONSTRAINT, 'floor');
     const timeDifference = moment(roundedTime).diff(initialTime, TIME_CONSTRAINT);
-    const latestPrice = pricesPerTimestep[pricesPerTimestep.length - 1].price;
+    const latestPrice = pricesPerTimestep[pricesPerTimestep.length - 1].realPrice;
     if (timeDifference > 1) {
       for (let i = 1; i < timeDifference; i++) {
         pricesPerTimestep.push({
-          price: latestPrice,
+          realPrice: latestPrice,
           time: initialTime + i * TIME_MS // 1 second
         });
       }
       initialTime = roundedTime;
       pricesPerTimestep.push({
-        price: t.price,
+        realPrice: t.price,
         time: roundedTime
       });
     }
@@ -43,7 +43,7 @@ const getPricesPerTimestep = historicalTrades => {
 
 const fillPricesPerTimestep = (historicalTrades, finishTime, missingTrades) => {
   const missingTradesPerTimestep = getPricesPerTimestep(missingTrades);
-  return [...historicalTrades, missingTradesPerTimestep.filter(t => t.time > finishTime)];
+  return [...historicalTrades, ...missingTradesPerTimestep.filter(t => t.time > finishTime)];
 };
 
 const fillTrades = async historicalTrades => {
@@ -56,7 +56,7 @@ const BASE_FETCH_AMOUNT = 10000;
 const fetchTrades = async () => {
   const existingTradeData = await aws.getData();
   if (
-    existingTradeData.length < 0 ||
+    existingTradeData.length === 0 ||
     diffTimes(moment().valueOf(), existingTradeData[existingTradeData.length - 1].time) > 2880 // amount of minutes in 2 days
   ) {
     const historicalTrades = await binance.fetchTrades(BASE_FETCH_AMOUNT);
@@ -84,13 +84,17 @@ const differenceTrades = trades => {
 const percentageDifference = (trades, label = 'price') => {
   return trades.reduce((res, t, index) => {
     if (index > 0) {
-      const difference = t.price - trades[index - 1].price;
-      const percent = (difference * 100) / trades[index - 1].price;
-      res.push({
-        realPrice: t.price,
-        [label]: percent,
-        time: t.time
-      });
+      const difference = t.realPrice - trades[index - 1].realPrice;
+      const percent = (difference * 100) / trades[index - 1].realPrice;
+      if (t[label] !== undefined && t.realPrice !== undefined) {
+        res.push(t);
+      } else {
+        res.push({
+          realPrice: t.realPrice,
+          [label]: percent,
+          time: t.time
+        });
+      }
     }
     return res;
   }, []);
@@ -99,6 +103,7 @@ const percentageDifference = (trades, label = 'price') => {
 const movingAvg = (trades, time, label = 'MA') => {
   // time in seconds
   return trades.map((t, index) => {
+    if (t[label] !== undefined) return t;
     let temp = 0;
     let divider = time;
     for (let i = index; i > index - time; i--) {
@@ -118,13 +123,19 @@ const movingAvg = (trades, time, label = 'MA') => {
 const expMovingAvg = (mArray, mRange, label = 'EMA') => {
   const k = 2 / (mRange + 1);
   // first item is just the same as the first item in the input
-  const emaArray = [{ ...mArray[0], [label]: mArray[0].price }];
+  let emaArray = [];
+  if (mArray[0][label] === undefined) emaArray = [{ ...mArray[0], [label]: mArray[0].price }];
+  else emaArray = [mArray[0]];
   // for the rest of the items, they are computed with the previous one
   for (let i = 1; i < mArray.length; i++) {
-    emaArray.push({
-      ...mArray[i],
-      [label]: mArray[i].price * k + emaArray[i - 1][label] * (1 - k)
-    });
+    if (mArray[i][label] !== undefined) {
+      emaArray.push(mArray[i]);
+    } else {
+      emaArray.push({
+        ...mArray[i],
+        [label]: mArray[i].price * k + emaArray[i - 1][label] * (1 - k)
+      });
+    }
   }
   return emaArray;
 };
@@ -178,6 +189,7 @@ const fastSellingMargin = 0.001 * 2; // 0.5% to buy and sell fast
 const accumulatedFees = price => price + (price * tradingFee + price * marginFee + price * fastSellingMargin);
 const expectedAction = trades => {
   return trades.reduce((res, t, index) => {
+    if (t.action) return [...res, t];
     const newTrades = trades.slice(index);
     if (!newTrades[TRANSACTION_TIME]) return res;
     if (trades[index + 1].realPrice >= t.realPrice) {
