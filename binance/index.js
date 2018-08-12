@@ -1,7 +1,8 @@
 const request = require('request'),
   webSocket = require('ws'),
   moment = require('moment'),
-  { diffTimes } = require('../helpers');
+  { diffTimes } = require('../helpers'),
+  logger = require('../logger');
 
 const key = '8tc4fJ1ddM2VmnbFzTk3f7hXsrehnT8wP7u6EdIoVq7gyXWiL852TP1wnKp0qaGM';
 const symbol = 'eosbtc';
@@ -42,17 +43,19 @@ exports.watchTrades = callback => {
 
 exports.fetchBTCPrice = () => {
   return new Promise((resolve, reject) => {
-    request.get({
-      url: 'https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT',
-      headers: {
-        'X-MBX-APIKEY': key
+    request.get(
+      {
+        url: 'https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT',
+        headers: {
+          'X-MBX-APIKEY': key
+        },
+        json: true
       },
-      json: true
-    }, (err, res, body) => {
-      if (err) return reject(err);
-      else
-        resolve(parseFloat(body.price));
-    });
+      (err, res, body) => {
+        if (err) return reject(err);
+        else return resolve(parseFloat(body.price));
+      }
+    );
   });
 };
 
@@ -64,31 +67,75 @@ const formatTransaction = (transaction, btcPrice) => {
   };
 };
 
-exports.fetchTrades = (amount, accumulator = [], endTime = 0) => {
+const getParams = (accumulator, endTime) => {
   let params = '';
   if (accumulator.length > 0) {
-    const startTime = moment(endTime).subtract(20, 'minutes').valueOf();
+    const startTime = moment(endTime)
+      .subtract(20, 'minutes')
+      .valueOf();
     params = `&startTime=${startTime}&endTime=${endTime}`;
   }
+  return params;
+};
+
+exports.fetchTrades = (amount, accumulator = [], endTime = 0) => {
+  logger.progress('trades', amount, 'Fetching Transactions');
+  const params = getParams(accumulator, endTime);
   return new Promise((resolve, reject) => {
-    request.get({
-      url: `https://api.binance.com/api/v1/aggTrades?symbol=${symbol.toUpperCase()}${params}`,
-      headers: {
-        'X-MBX-APIKEY': key
+    request.get(
+      {
+        url: `https://api.binance.com/api/v1/aggTrades?symbol=${symbol.toUpperCase()}${params}`,
+        headers: {
+          'X-MBX-APIKEY': key
+        },
+        json: true
       },
-      json: true
-    }, (err, res, body) => {
-      // cambiar por ultimas 24 horas
-      return resolve(exports.fetchBTCPrice().then(btcPrice => {
-        const reversed = body.reverse();
-        const merged = [...accumulator, ...reversed.map(t => formatTransaction(t, btcPrice))];
-        if (err) return reject(err);
-        else if (merged.length < amount)
-          return exports.fetchTrades(amount, merged, reversed[reversed.length - 1].T);
-        else {
-          return merged.reverse();
-        }
-      }));
-    });
+      (err, res, body) => {
+        // cambiar por ultimas 24 horas
+        logger.progress('trades').tick(body.length);
+        return resolve(
+          exports.fetchBTCPrice().then(btcPrice => {
+            const reversed = body.reverse();
+            const merged = [...accumulator, ...reversed.map(t => formatTransaction(t, btcPrice))];
+            if (err) return reject(err);
+            else if (merged.length < amount)
+              return exports.fetchTrades(amount, merged, reversed[reversed.length - 1].T);
+            else {
+              return merged.reverse();
+            }
+          })
+        );
+      }
+    );
+  });
+};
+
+exports.fillTransactions = (finishTime, accumulator = [], endTime = 0) => {
+  const params = getParams(accumulator, endTime);
+  return new Promise((resolve, reject) => {
+    request.get(
+      {
+        url: `https://api.binance.com/api/v1/aggTrades?symbol=${symbol.toUpperCase()}${params}`,
+        headers: {
+          'X-MBX-APIKEY': key
+        },
+        json: true
+      },
+      (err, res, body) => {
+        // cambiar por ultimas 24 horas
+        return resolve(
+          exports.fetchBTCPrice().then(btcPrice => {
+            const reversed = body.reverse();
+            const merged = [...accumulator, ...reversed.map(t => formatTransaction(t, btcPrice))];
+            if (err) return reject(err);
+            else if (merged[merged.length - 1].time > finishTime)
+              return exports.fillTransactions(finishTime, merged, reversed[reversed.length - 1].T);
+            else {
+              return merged.reverse();
+            }
+          })
+        );
+      }
+    );
   });
 };

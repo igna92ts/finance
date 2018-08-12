@@ -1,7 +1,5 @@
 const Random = require('random-js'),
-  mt = Random.engines.mt19937().autoSeed(),
-  memoize = require('fast-memoize'),
-  { profile } = require('./helpers');
+  mt = Random.engines.mt19937().autoSeed();
 
 const pickRandomElement = array => Random.pick(mt, array);
 const pickRandomElements = (count, array) => {
@@ -25,14 +23,14 @@ const getUniqueValues = (key, data) => {
 };
 
 const createQuestion = (key, value) => {
-  if (typeof value === 'string') return e => e[key] === value;
-  else return e => e[key] >= value;
+  if (typeof value === 'string') return { str: `e => e['${key}'] === ${value}`, fn: e => e[key] === value };
+  else return { str: `e => e['${key}'] >= ${value}`, fn: e => e[key] >= value };
 };
 
 const partition = (data, question) => {
   return data.reduce(
     (acc, e) => {
-      acc[question(e) ? 0 : 1].push(e);
+      acc[question.fn(e) ? 0 : 1].push(e);
       return acc;
     },
     [[], []]
@@ -76,67 +74,30 @@ const findBestSplit = (features, data) => {
           if (gain >= result.gain) return { question, gain, matched, rest };
           return result;
         },
-        { gain: 0, question: d => d }
+        { gain: 0, question: { fn: d => d, str: `d => d` } }
       );
       if (newResult.gain >= finalResult.gain) return newResult;
       else return finalResult;
     },
-    { gain: 0, question: d => d, matched, rest }
+    { gain: 0, question: { fn: d => d, str: `d => d` }, matched, rest }
   );
 };
 
 const buildTree = (features, data) => {
   const split = findBestSplit(features, data);
   if (split.gain === 0) {
-    return newData => calculateClassProportion(getUniqueValues('action', data), data);
+    const proportion = calculateClassProportion(getUniqueValues('action', data), data);
+    const proportionText = JSON.stringify(proportion);
+    return `(newData => (${proportionText}))`;
   }
   const { matched, rest } = split;
 
   const matchedQuestion = buildTree(features, matched);
   const restQuestion = buildTree(features, rest);
-  return newValue => (split.question(newValue) ? matchedQuestion(newValue) : restQuestion(newValue));
+  const { question } = split;
+  return `newValue => (${
+    question.str
+  })(newValue) ? (${matchedQuestion})(newValue) : (${restQuestion})(newValue)`;
 };
 
-const getSample = (size, data) => {
-  const sample = [];
-  for (let i = 0; i < size; i++) {
-    sample.push(pickRandomElement(data));
-  }
-  return sample;
-};
-
-const buildForest = (features, data) => {
-  const forest = [];
-  const forestSize = 128;
-  for (let i = 0; i < forestSize; i++) {
-    console.log(`CREATING TREE ${i} OF ${forestSize}`);
-    const sample = getSample(data.length, data);
-    const rnd = pickRandomElements(getRandomInt(1, features.length), features);
-    const tree = buildTree(rnd, sample);
-    forest.push(tree);
-  }
-  return forest;
-};
-// buildForest(['color', 'diameter'], [
-//   { color: 'green', diameter: 3, action: 'apple' },
-//   { color: 'yellow', diameter: 3, action: 'apple' },
-//   { color: 'red', diameter: 1, action: 'grape' },
-//   { color: 'red', diameter: 1, action: 'grape' },
-//   { color: 'yellow', diameter: 3, action: 'lemon' }
-// ]);
-
-module.exports = {
-  buildTree,
-  buildForest
-};
-// const tree = buildTree([
-//   { color: 'green', diameter: 3, action: 'apple' },
-//   { color: 'yellow', diameter: 3, action: 'apple' },
-//   { color: 'red', diameter: 1, action: 'grape' },
-//   { color: 'red', diameter: 1, action: 'grape' },
-//   { color: 'yellow', diameter: 3, action: 'lemon' },
-// ]);
-// const result = tree({ color: 'red', diameter: 1 });
-// const result2 = tree({ color: 'yellow', diameter: 3 });
-// const result3 = tree({ color: 'yellow', diameter: 1 });
-// console.log(result, result);
+module.exports = { buildTree };
