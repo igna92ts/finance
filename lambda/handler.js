@@ -14,20 +14,44 @@ const getSample = (size, data) => {
   return sample;
 };
 
-module.exports.createTree = async (event, context, callback) => {
-  context.callbackWaitsForEmptyEventLoop = false;
+const answer = {
+  success: result => {
+    return {
+      statusCode: 200,
+      headers: {
+        'Access-Control-Allow-Origin': '*', // Required for CORS support to work
+        'Access-Control-Allow-Credentials': true // Required for cookies, authorization headers with HTTPS
+      },
+      body: JSON.stringify(result)
+    };
+  },
+  internalServerError: msg => {
+    return {
+      statusCode: 500,
+      headers: {
+        'Access-Control-Allow-Origin': '*', // Required for CORS support to work
+        'Access-Control-Allow-Credentials': true // Required for cookies, authorization headers with HTTPS
+      },
+      body: JSON.stringify({
+        statusCode: 500,
+        error: 'Internal Server Error',
+        internalError: JSON.stringify(msg)
+      })
+    };
+  }
+};
+
+module.exports.createTree = (event, context, callback) => {
   try {
     if (!event.body) throw new Error('no body');
-    const params = event.body;
+    const params = JSON.parse(event.body);
     if (!params.features || !params.fileName) return new Error('no features or fileName');
-    const data = await aws.getData(params.fileName);
-    const sample = getSample(data.length, data);
-    const newTree = tree.buildTree(params.features, sample.slice(0, 100));
-    callback(null, {
-      statusCode: 200,
-      body: JSON.stringify({ tree: newTree })
+    aws.getData(params.fileName).then(data => {
+      const sample = getSample(500, data);
+      const newTree = tree.buildTree(params.features, sample);
+      callback(null, answer.success({ tree: newTree }));
     });
   } catch (err) {
-    callback(err);
+    callback(null, answer.internalServerError(err.message));
   }
 };

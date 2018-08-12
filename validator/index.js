@@ -27,11 +27,19 @@ const classify = (forest, trade) => {
   });
 };
 
+const chain = promises => {
+  if (promises.length === 0) return 1;
+  return promises[0]().then(() => chain(promises.slice(1)));
+};
+
 const validate = async (folds = 10, features, data) => {
   const chunked = chunkArray(data, folds);
-  const comparisonPromises = chunked.map(async (chunk, index) => {
+  const promises = chunked.map((chunk, index) => {
     const trainingData = mergeWithout(index, chunked);
-    await aws.uploadData(trainingData, `data-fold-${index}`);
+    return () => aws.uploadData(trainingData, `data-fold-${index}`);
+  });
+  await chain(promises);
+  const comparisonPromises = chunked.map(async (chunk, index) => {
     const forest = await rndForest.buildForest(features, index);
     const results = chunk.map(c => classify(forest, c));
     const compare =
