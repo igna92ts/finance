@@ -31,6 +31,14 @@ const getSample = (size, data) => {
   return sample;
 };
 
+const retry = (fn, time) => {
+  return new Promise((resolve, reject) => {
+    setTimeout(() => {
+      resolve(fn().catch(err => reject(err)));
+    }, time);
+  });
+};
+
 const buildTree = (features, fold, count) => {
   return new Promise((resolve, reject) => {
     request.post(
@@ -41,7 +49,11 @@ const buildTree = (features, fold, count) => {
         body: { features, fileName: fold !== undefined ? `data-fold-${fold}` : 'data' }
       },
       (err, res, body) => {
-        if (!body.tree) debugger;
+        if (!body || !body.tree) {
+          // 5 second timeout before retry
+          logger.error({ error: err, body });
+          return retry(() => buildTree(features, fold, count), 5000);
+        }
         if (err) {
           logger.error(err);
           return reject(err);
@@ -56,7 +68,7 @@ const buildTree = (features, fold, count) => {
 
 const buildForest = (features, fold) => {
   const forestPromises = [];
-  const forestSize = 1024;
+  const forestSize = 512;
   logger.progress(`forest-${fold}`, forestSize, `Fold #${fold}`);
   for (let i = 0; i < forestSize; i++) {
     const rnd = pickRandomFeatures(getRandomInt(1, features.length), features);

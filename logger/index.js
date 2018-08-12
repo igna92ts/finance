@@ -28,11 +28,6 @@ const logger = winston.createLogger({
       json: false,
       level: 'error',
       prettyPrint: true
-    }),
-    new winston.transports.Console({
-      timestamp: tsFormat,
-      colorize: false,
-      prettyPrint: true
     })
   ]
 });
