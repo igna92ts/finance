@@ -41,16 +41,18 @@ const answer = {
   }
 };
 
+const SAMPLE_SIZE = 100;
 module.exports.createTree = (event, context, callback) => {
   try {
     if (!event.body) throw new Error('no body');
     const params = JSON.parse(event.body);
-    if (!params.features || !params.fileName) return new Error('no features or fileName');
+    if (!params.features || !params.fileName || !params.number || !params.fold) return new Error('no features or fileName or fold or number');
     aws.getData(params.fileName).then(data => {
-      const sample = getSample(500, data);
+      const sample = getSample(SAMPLE_SIZE, data);
       const newTree = tree.buildTree(params.features, sample);
-      callback(null, answer.success({ tree: newTree }));
+      return aws.uploadTree({ tree: newTree, number: params.number, fold: params.fold });
     });
+    callback(null, answer.success({ msg: 'Processing' }));
   } catch (err) {
     callback(null, answer.internalServerError(err.message));
   }

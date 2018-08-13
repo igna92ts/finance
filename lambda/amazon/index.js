@@ -34,4 +34,18 @@ const getData = (fileName = 'data') => {
     });
 };
 
-module.exports = { getData };
+const uploadTree = async treeObj => {
+  const buffer = Buffer.from('string', treeObj.tree);
+  const params = {
+    Body: body,
+    Bucket: bucketName,
+    Key: `/trees/fold${treeObj.fold}/tree${treeObj.number}.json`
+  };
+  return new Promise((resolve, reject) => {
+    s3.putObject(params, (err, result) => {
+      if (err) return reject(err);
+      else return resolve(result);
+    });
+  });
+};
+module.exports = { getData, uploadTree };

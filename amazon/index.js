@@ -7,15 +7,16 @@ require('dotenv').config();
 
 const bucketName = 'igna92ts-finance';
 
+if (!process.env.AWS_KEY || !process.env.AWS_SECRET) throw new Error('No Aws Credentials');
 AWS.config.update({
   accessKeyId: process.env.AWS_KEY,
   secretAccessKey: process.env.AWS_SECRET,
-  region: 'us-east-1'
+  region: 'us-east-1',
 });
 const s3 = new AWS.S3();
 
 const zipFile = async data => {
-  const spinner = logger.spinner('Compressing data').start();
+  const spinner = logger.spinner('Compressing Data').start();
   zip.file('data.json', JSON.stringify(data));
   const fileData = await zip.generateAsync({
     type: 'uint8array',

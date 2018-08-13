@@ -46,7 +46,12 @@ const buildTree = (features, fold, count) => {
         // url: 'http://localhost:3000/create_tree',
         url: 'https://www.igna92ts.com/finance/create_tree',
         json: true,
-        body: { features, fileName: fold !== undefined ? `data-fold-${fold}` : 'data' }
+        body: {
+          features,
+          fileName: fold !== undefined ? `data-fold-${fold}` : 'data',
+          number: count,
+          fold
+        }
       },
       (err, res, body) => {
         if (!body || !body.tree) {
