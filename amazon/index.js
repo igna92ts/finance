@@ -11,9 +11,10 @@ if (!process.env.AWS_KEY || !process.env.AWS_SECRET) throw new Error('No Aws Cre
 AWS.config.update({
   accessKeyId: process.env.AWS_KEY,
   secretAccessKey: process.env.AWS_SECRET,
-  region: 'us-east-1',
+  region: 'us-east-1'
 });
 const s3 = new AWS.S3();
+const sqs = new AWS.SQS();
 
 const zipFile = async data => {
   const spinner = logger.spinner('Compressing Data').start();
@@ -75,7 +76,17 @@ const getData = (fileName = 'data') => {
   });
 };
 
+const sendMessage = payload => {
+  return sqs
+    .sendMessage({
+      MessageBody: JSON.stringify(payload),
+      QueueUrl: 'https://sqs.us-east-1.amazonaws.com/534322619540/finance-training'
+    })
+    .promise();
+};
+
 module.exports = {
   getData,
-  uploadData
+  uploadData,
+  sendMessage
 };
