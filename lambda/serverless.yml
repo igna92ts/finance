@@ -4,21 +4,8 @@ provider:
   name: aws
   runtime: nodejs8.10
 
-plugins:
-  - serverless-offline
-  - serverless-domain-manager
-
-custom:
-  customDomain:
-    domainName: 'www.igna92ts.com'
-    basePath: 'finance'
-    createRoute53Record: true
-
 functions:
   createTree:
     handler: handler.createTree
     events:
-      - http:
-          path: create_tree
-          method: post
-          cors: true 
+      - sqs: arn:aws:sqs:us-east-1:534322619540:finance-training
