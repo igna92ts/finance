@@ -53,6 +53,7 @@ const fillTrades = async historicalTrades => {
 };
 
 const BASE_FETCH_AMOUNT = 10000;
+const MAX_TRADES = 2592000;
 const fetchTrades = async () => {
   const existingTradeData = await aws.getData();
   if (
@@ -65,7 +66,7 @@ const fetchTrades = async () => {
     const spinner = logger.spinner('Filling missing Transactions').start();
     const trades = await fillTrades(existingTradeData);
     spinner.succeed();
-    return trades;
+    return trades.slice(-MAX_TRADES); // to get at most MAX_TRADES
   }
 };
 
