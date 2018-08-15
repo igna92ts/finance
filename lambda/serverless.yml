@@ -3,9 +3,13 @@ service: test-service # NOTE: update this with your service name
 provider:
   name: aws
   runtime: nodejs8.10
+  timeout: 300
+  memorySize: 3008
 
 functions:
   createTree:
     handler: handler.createTree
     events:
-      - sqs: arn:aws:sqs:us-east-1:534322619540:finance-training
+      - sqs:
+          arn: arn:aws:sqs:us-east-1:534322619540:finance-training
+          batchSize: 1
