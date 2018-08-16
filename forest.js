@@ -54,7 +54,7 @@ const buildTree = (features, fold, count) => {
 
 const buildForest = (features, fold) => {
   const forestPromises = [];
-  const forestSize = 1024;
+  const forestSize = 256;
   logger.progress(`forest-${fold}`, forestSize, `Fold #${fold}`);
   for (let i = 0; i < forestSize; i++) {
     const rnd = pickRandomFeatures(getRandomInt(1, features.length), features);

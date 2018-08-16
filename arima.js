@@ -9,8 +9,8 @@ const moment = require('moment'),
   aws = require('./amazon'),
   logger = require('./logger');
 
-const TIME_CONSTRAINT = 'seconds';
-const TIME_MS = 1000;
+const TIME_CONSTRAINT = 'minutes';
+const TIME_MS = 60000;
 
 const getPricesPerTimestep = historicalTrades => {
   let initialTime = roundTime(historicalTrades[0].time, 1, TIME_CONSTRAINT, 'floor');
@@ -53,7 +53,7 @@ const fillTrades = async historicalTrades => {
 };
 
 const BASE_FETCH_AMOUNT = 10000;
-const MAX_TRADES = 2592000;
+const MAX_TRADES = 86400; // 2 days in minutes
 const fetchTrades = async () => {
   const existingTradeData = await aws.getData();
   if (
