@@ -76,10 +76,6 @@ const getData = (fileName = 'data') => {
   });
 };
 
-const downloadForest = () => {
-  const 
-};
-
 const sendMessage = payload => {
   return sqs
     .sendMessage({
@@ -89,8 +85,43 @@ const sendMessage = payload => {
     .promise();
 };
 
+const getTreeObjectKeys = async continuationToken => {
+  const params = {
+    Bucket: bucketName,
+    Prefix: 'trees/'
+  };
+  if (continuationToken) params.ContinuationToken = continuationToken;
+  const data = await s3.listObjectsV2(params).promise();
+  if (data.IsTruncated) {
+    const otherData = await getTreeObjectKeys(data.NextContinuationToken);
+    return [...data.Contents, ...otherData];
+  } else {
+    return data.Contents;
+  }
+};
+
+const downloadTrees = async () => {
+  try {
+    const objectKeys = await getTreeObjectKeys();
+    const promises = objectKeys.map(async k => {
+      const params = {
+        Bucket: bucketName,
+        Key: k.Key
+      };
+      const file = await s3.getObject(params).promise();
+      const data = JSON.parse(file.Body);
+      return data;
+    });
+    return Promise.all(promises);
+  } catch (err) {
+    console.log(err);
+    throw err;
+  }
+};
+
 module.exports = {
   getData,
   uploadData,
-  sendMessage
+  sendMessage,
+  downloadTrees
 };

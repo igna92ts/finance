@@ -4,6 +4,7 @@ provider:
   name: aws
   runtime: nodejs8.10
   timeout: 300
+  memorySize: 512
 
 functions:
   createTree:

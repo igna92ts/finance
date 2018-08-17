@@ -64,7 +64,7 @@ const getData = (fileName = 'data') => {
 
 const uploadTree = async treeObj => {
   const params = {
-    Body: treeObj.tree,
+    Body: JSON.stringify(treeObj),
     Bucket: bucketName,
     Key: `trees/fold${treeObj.fold}/tree${treeObj.number}.json`
   };

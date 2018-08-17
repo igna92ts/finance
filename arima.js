@@ -52,7 +52,7 @@ const fillTrades = async historicalTrades => {
   return fillPricesPerTimestep(historicalTrades, finishTime, missingTrades);
 };
 
-const BASE_FETCH_AMOUNT = 10000;
+const BASE_FETCH_AMOUNT = 100000;
 const MAX_TRADES = 86400; // 2 days in minutes
 const fetchTrades = async () => {
   const existingTradeData = await aws.getData();
