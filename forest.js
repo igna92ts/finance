@@ -15,15 +15,6 @@ const pickRandomElements = (count, array) => {
 };
 const getRandomInt = (min, max) => Random.integer(min, max)(mt);
 
-const pickRandomFeatures = (count, array) => {
-  let elements = [];
-  while (elements.length !== count) {
-    elements.push(Random.pick(mt, array));
-    elements = Array.from(new Set(elements));
-  }
-  return elements;
-};
-
 const getSample = (size, data) => {
   const sample = [];
   for (let i = 0; i < size; i++) {
@@ -57,8 +48,7 @@ const buildForest = (features, fold) => {
   const forestSize = 256;
   logger.progress(`forest-${fold}`, forestSize, `Fold #${fold}`);
   for (let i = 0; i < forestSize; i++) {
-    const rnd = pickRandomFeatures(getRandomInt(1, features.length), features);
-    const tree = buildTree(rnd, fold, i);
+    const tree = buildTree(features, fold, i);
     forestPromises.push(tree);
   }
   return Promise.all(forestPromises).catch(logger.error);

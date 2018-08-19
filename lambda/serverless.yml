@@ -3,8 +3,8 @@ service: test-service # NOTE: update this with your service name
 provider:
   name: aws
   runtime: nodejs8.10
-  timeout: 300
-  memorySize: 512
+  timeout: 100
+  memorySize: 1024
 
 functions:
   createTree:

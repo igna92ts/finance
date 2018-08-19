@@ -103,14 +103,16 @@ const getTreeObjectKeys = async continuationToken => {
 const downloadTrees = async () => {
   try {
     const objectKeys = await getTreeObjectKeys();
+    logger.progress('trees', objectKeys.length, 'Fetching Trees');
     const promises = objectKeys.map(async k => {
       const params = {
         Bucket: bucketName,
         Key: k.Key
       };
       const file = await s3.getObject(params).promise();
-      const data = JSON.parse(file.Body);
-      return data;
+      const treeData = JSON.parse(file.Body.toString());
+      logger.progress('trees').tick(1);
+      return { ...treeData, tree: eval(treeData.tree) };
     });
     return Promise.all(promises);
   } catch (err) {

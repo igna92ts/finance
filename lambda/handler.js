@@ -14,7 +14,7 @@ const getSample = (size, data) => {
   return sample;
 };
 
-const SAMPLE_SIZE = 2500;
+const SAMPLE_SIZE = 1000;
 module.exports.createTree = (event, context, callback) => {
   if (!event.Records) return console.error('No Records in event');
   const params = JSON.parse(event.Records[0].body);

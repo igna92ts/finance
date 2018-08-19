@@ -17,9 +17,11 @@ const getPricesPerTimestep = historicalTrades => {
   const pricesPerTimestep = [
     {
       realPrice: historicalTrades[0].price,
+      volume: historicalTrades[0].volume,
       time: initialTime
     }
   ];
+  let tempVolume = 0;
   historicalTrades.forEach(t => {
     const roundedTime = roundTime(t.time, 1, TIME_CONSTRAINT, 'floor');
     const timeDifference = moment(roundedTime).diff(initialTime, TIME_CONSTRAINT);
@@ -28,14 +30,19 @@ const getPricesPerTimestep = historicalTrades => {
       for (let i = 1; i < timeDifference; i++) {
         pricesPerTimestep.push({
           realPrice: latestPrice,
-          time: initialTime + i * TIME_MS // 1 second
+          time: initialTime + i * TIME_MS, // 1 second
+          volume: 0
         });
       }
       initialTime = roundedTime;
       pricesPerTimestep.push({
+        volume: tempVolume,
         realPrice: t.price,
         time: roundedTime
       });
+      tempVolume = 0;
+    } else {
+      tempVolume += t.volume;
     }
   });
   return pricesPerTimestep;
@@ -52,21 +59,21 @@ const fillTrades = async historicalTrades => {
   return fillPricesPerTimestep(historicalTrades, finishTime, missingTrades);
 };
 
-const BASE_FETCH_AMOUNT = 100000;
-const MAX_TRADES = 86400; // 2 days in minutes
-const fetchTrades = async () => {
+const BASE_FETCH_AMOUNT = 1000000;
+const MAX_TRADES = 20160; // 2 days in minutes
+const fetchTrades = async removeAmount => {
   const existingTradeData = await aws.getData();
   if (
     existingTradeData.length === 0 ||
     diffTimes(moment().valueOf(), existingTradeData[existingTradeData.length - 1].time) > 2880 // amount of minutes in 2 days
   ) {
     const historicalTrades = await binance.fetchTrades(BASE_FETCH_AMOUNT);
-    return getPricesPerTimestep(historicalTrades);
+    return getPricesPerTimestep(historicalTrades).slice(removeAmount);
   } else {
     const spinner = logger.spinner('Filling missing Transactions').start();
     const trades = await fillTrades(existingTradeData);
     spinner.succeed();
-    return trades.slice(-MAX_TRADES); // to get at most MAX_TRADES
+    return trades.slice(-MAX_TRADES).slice(removeAmount); // to get at most MAX_TRADES
   }
 };
 
@@ -91,12 +98,37 @@ const percentageDifference = (trades, label = 'price') => {
         res.push(t);
       } else {
         res.push({
+          ...t,
           realPrice: t.realPrice,
-          [label]: percent,
-          time: t.time
+          [label]: percent
         });
       }
     }
+    return res;
+  }, []);
+};
+
+const onVolumeBalance = (trades, label = 'OVB') => {
+  return trades.reduce((res, t, index) => {
+    if (t[label] !== undefined) {
+      res.push(t);
+      return res;
+    }
+    const previousTrade = res[res.length - 1];
+    let ovb = 0;
+    if (previousTrade) {
+      if (previousTrade.realPrice < t.realPrice) {
+        ovb = previousTrade[label] + t.volume;
+      } else if (previousTrade.realPrice > t.realPrice) {
+        ovb = previousTrade[label] - t.volume;
+      } else {
+        ovb = previousTrade[label];
+      }
+    }
+    res.push({
+      ...t,
+      [label]: ovb
+    });
     return res;
   }, []);
 };
@@ -223,44 +255,6 @@ const expectedAction = trades => {
   }, []);
 };
 
-const calculateReturns = trades => {
-  const money = {
-    USD: 1000,
-    CUR: 0
-  };
-  trades.forEach(t => {
-    if (t.action === 'BUY' && money.USD > 0) {
-      money.CUR += (money.USD * 0.1) / (t.realPrice + t.realPrice * 0.001); // I add a little to buy it fast
-      money.USD -= money.USD * 0.1;
-    }
-    if (t.action === 'SELL') {
-      money.USD += money.CUR * (t.realPrice - t.realPrice * 0.001);
-      money.CUR = 0;
-    }
-  });
-  return money;
-};
-
-const calculateMaxReturns = trades => {
-  const money = {
-    USD: 1000,
-    CUR: 0
-  };
-  trades.forEach((t, index) => {
-    if (trades[index + 1]) {
-      if (trades[index + 1].realPrice > t.realPrice && money.USD > 0) {
-        money.CUR = money.USD / t.realPrice;
-        money.USD = 0;
-      }
-      if (trades[index + 1].realPrice < t.realPrice && money.CUR > 0) {
-        money.USD = money.CUR * t.realPrice;
-        money.CUR = 0;
-      }
-    }
-  });
-  return money;
-};
-
 const estimate = (forest, trade) => {
   return forest.map(tree => tree(trade)).reduce(
     (res, e) => {
@@ -281,38 +275,56 @@ const changeTime = trades => {
   });
 };
 
-const arima = async () => {
-  const tradeData = await fetchTrades();
+const generateTest = async () => {
+  const tradeData = await fetchTrades(240); // max amount of timesteps to remove
   const data = pipe(
     tradeData,
     [percentageDifference, 'price'],
+    [expMovingAvg, 10, 'EMA10'],
+    [expMovingAvg, 30, 'EMA30'],
     [expMovingAvg, 60, 'EMA60'],
+    [expMovingAvg, 90, 'EMA90'],
     [expMovingAvg, 120, 'EMA120'],
     [expMovingAvg, 240, 'EMA240'],
+    [relStrIndex, 10, 'RSI10'],
+    [relStrIndex, 30, 'RSI30'],
     [relStrIndex, 60, 'RSI60'],
+    [relStrIndex, 90, 'RSI90'],
     [relStrIndex, 120, 'RSI120'],
     [relStrIndex, 240, 'RSI240'],
+    [movingAvg, 10, 'MA10'],
+    [movingAvg, 30, 'MA30'],
     [movingAvg, 60, 'MA60'],
+    [movingAvg, 90, 'MA90'],
     [movingAvg, 120, 'MA120'],
     [movingAvg, 240, 'MA240'],
-    [expectedAction],
-    [changeTime]
+    [onVolumeBalance, 'OVB'],
+    [expectedAction]
   );
   await aws.uploadData(data);
   const validation = await validator.validate(
     10,
     [
+      'MA10',
+      'MA30',
       'MA60',
+      'MA90',
       'MA120',
       'MA240',
+      'EMA10',
+      'EMA30',
       'EMA60',
+      'EMA90',
       'EMA120',
       'EMA240',
+      'RSI10',
+      'RSI30',
       'RSI60',
+      'RSI90',
       'RSI120',
       'RSI240',
-      'price',
-      'shortTime'
+      'OVB',
+      'price'
     ],
     data
   );
@@ -320,7 +332,7 @@ const arima = async () => {
 };
 
 try {
-  arima();
+  generateTest();
 } catch (err) {
   logger.error(err);
 }

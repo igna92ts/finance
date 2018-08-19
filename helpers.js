@@ -41,6 +41,13 @@ const chunkArray = (myArray, folds) => {
   return tempArray;
 };
 
+const groupBy = (xs, key) => {
+  return xs.reduce((rv, x) => {
+    (rv[x[key]] = rv[x[key]] || []).push(x);
+    return rv;
+  }, {});
+};
+
 const pipe = (initial, ...foos) => {
   return foos.reduce((result, f) => {
     const spinner = logger.spinner(`${f[0].name} ${f[1] || ''}`).start();
@@ -88,5 +95,6 @@ module.exports = {
   diffTimes,
   sigmoid,
   logit,
-  roundTime
+  roundTime,
+  groupBy
 };

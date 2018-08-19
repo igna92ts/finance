@@ -54,6 +54,15 @@ const informationGain = (left, right, currentUncertainty) => {
   return currentUncertainty - p * gini(left) - (1 - p) * gini(right);
 };
 
+const pickRandomFeatures = (count, array) => {
+  let elements = [];
+  while (elements.length !== count) {
+    elements.push(Random.pick(mt, array));
+    elements = Array.from(new Set(elements));
+  }
+  return elements;
+};
+
 const findBestSplit = (features, data) => {
   const currentUncertainty = gini(data);
   let matched = [];
@@ -84,7 +93,8 @@ const findBestSplit = (features, data) => {
 };
 
 const buildTree = (features, data) => {
-  const split = findBestSplit(features, data);
+  const rnd = pickRandomFeatures(getRandomInt(1, features.length), features);
+  const split = findBestSplit(rnd, data);
   if (split.gain === 0) {
     const proportion = calculateClassProportion(getUniqueValues('action', data), data);
     const proportionText = JSON.stringify(proportion);
