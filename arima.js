@@ -331,16 +331,17 @@ const generateTest = async () => {
   logger.info(`VALIDATION RESULT ${validation}`);
 };
 
-try {
-  generateTest();
-} catch (err) {
-  logger.error(err);
-}
+// try {
+//   generateTest();
+// } catch (err) {
+//   logger.error(err);
+// }
 
 module.exports = {
   percentageDifference,
   movingAvg,
   expMovingAvg,
   getPricesPerTimestep,
-  relStrIndex
+  relStrIndex,
+  fetchTrades
 };
