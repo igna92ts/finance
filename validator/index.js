@@ -1,15 +1,7 @@
-const { chunkArray } = require('../helpers'),
+const { chunkArray, mergeWithout } = require('../helpers'),
   rndForest = require('../forest'),
   aws = require('../amazon'),
   helpers = require('../helpers');
-
-const mergeWithout = (index, chunks) => {
-  return chunks.reduce((res, chunk, i) => {
-    if (i !== index) {
-      return [...res, ...chunk];
-    } else return res;
-  }, []);
-};
 
 const classify = (forest, trade) => {
   const sum = forest.map(tree => tree(trade)).reduce(

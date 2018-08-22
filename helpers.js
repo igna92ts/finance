@@ -57,6 +57,14 @@ const pipe = (initial, ...foos) => {
   }, initial);
 };
 
+const mergeWithout = (index, chunks) => {
+  return chunks.reduce((res, chunk, i) => {
+    if (i !== index) {
+      return [...res, ...chunk];
+    } else return res;
+  }, []);
+};
+
 const tracking = {};
 const profile = (foo, note) => {
   return (...params) => {
@@ -96,5 +104,6 @@ module.exports = {
   sigmoid,
   logit,
   roundTime,
-  groupBy
+  groupBy,
+  mergeWithout
 };

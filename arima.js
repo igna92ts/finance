@@ -61,19 +61,19 @@ const fillTrades = async historicalTrades => {
 
 const BASE_FETCH_AMOUNT = 1000000;
 const MAX_TRADES = 20160; // 2 days in minutes
-const fetchTrades = async removeAmount => {
+const fetchTrades = async () => {
   const existingTradeData = await aws.getData();
   if (
     existingTradeData.length === 0 ||
     diffTimes(moment().valueOf(), existingTradeData[existingTradeData.length - 1].time) > 2880 // amount of minutes in 2 days
   ) {
     const historicalTrades = await binance.fetchTrades(BASE_FETCH_AMOUNT);
-    return getPricesPerTimestep(historicalTrades).slice(removeAmount);
+    return getPricesPerTimestep(historicalTrades);
   } else {
     const spinner = logger.spinner('Filling missing Transactions').start();
     const trades = await fillTrades(existingTradeData);
     spinner.succeed();
-    return trades.slice(-MAX_TRADES).slice(removeAmount); // to get at most MAX_TRADES
+    return trades.slice(-MAX_TRADES); // to get at most MAX_TRADES
   }
 };
 
@@ -89,20 +89,17 @@ const differenceTrades = trades => {
   }, []);
 };
 
-const percentageDifference = (trades, label = 'price') => {
+const exponentialSmoothing = (trades, label = 'price') => {
+  const SMOOTHING_FACTOR = 0.5;
   return trades.reduce((res, t, index) => {
-    if (index > 0) {
-      const difference = t.realPrice - trades[index - 1].realPrice;
-      const percent = (difference * 100) / trades[index - 1].realPrice;
-      if (t[label] !== undefined && t.realPrice !== undefined) {
-        res.push(t);
-      } else {
-        res.push({
-          ...t,
-          realPrice: t.realPrice,
-          [label]: percent
-        });
-      }
+    if (index === 0) res.push({ ...t, [label]: t.realPrice });
+    else {
+      const expSmoothValue =
+        SMOOTHING_FACTOR * t.realPrice + (1 - SMOOTHING_FACTOR) * res[res.length - 1][label];
+      res.push({
+        ...t,
+        [label]: expSmoothValue
+      });
     }
     return res;
   }, []);
@@ -149,6 +146,71 @@ const movingAvg = (trades, time, label = 'MA') => {
     return {
       ...t,
       [label]: temp / divider
+    };
+  });
+};
+
+const stdDeviation = (trades, time, label = 'STD') => {
+  return trades.map((t, index) => {
+    const start = index - time;
+    if (t[label] !== undefined) return t;
+    if (start < 0) return { ...t, [label]: 0 };
+    const timeFrame = trades.slice(start, index);
+    const mean = timeFrame.reduce((res, trade) => res + trade.price, 0) / timeFrame.length;
+    const squaredDifferences = timeFrame.map(trade => (trade.price - mean) ** 2);
+    const meanSqdDifference = squaredDifferences.reduce((res, d) => res + d, 0) / squaredDifferences.length;
+    return {
+      ...t,
+      [label]: Math.sqrt(meanSqdDifference)
+    };
+  });
+};
+
+
+const priceRateOfChange = (trades, time, label = 'PROC') => {
+  return trades.map((t, index) => {
+    const start = index - time;
+    if (t[label] !== undefined) return t;
+    if (start < 0) return { ...t, [label]: 0 };
+    const currentPrice = t.price;
+    const oldPrice = trades[start].price;
+    return {
+      ...t,
+      [label]: (currentPrice - oldPrice) / oldPrice
+    };
+  });
+};
+
+const stochasticOscillator = (trades, time, label = 'STO') => {
+  return trades.map((t, index) => {
+    const start = index - time;
+    if (t[label] !== undefined) return t;
+    if (start < 0) return { ...t, [label]: 0 };
+    const currentPrice = t.price;
+    const timeFrame = trades.slice(start, index);
+    const low = Math.min(...timeFrame.map(e => e.price));
+    const high = Math.max(...timeFrame.map(e => e.price));
+    const k = 100 * ((currentPrice - low) / (high - low));
+    return {
+      ...t,
+      [label]: k
+    };
+  });
+};
+
+const williamsR = (trades, time, label = 'WR') => {
+  return trades.map((t, index) => {
+    const start = index - time;
+    if (t[label] !== undefined) return t;
+    if (start < 0) return { ...t, [label]: 0 };
+    const currentPrice = t.price;
+    const timeFrame = trades.slice(start, index);
+    const low = Math.min(...timeFrame.map(e => e.price));
+    const high = Math.max(...timeFrame.map(e => e.price));
+    const r = ((high - currentPrice) / (high - low)) * -100;
+    return {
+      ...t,
+      [label]: r
     };
   });
 };
@@ -215,6 +277,7 @@ const relStrIndex = (trades, time, label = 'RSI') => {
   return rsiArray;
 };
 
+
 const TRANSACTION_TIME = 5;
 const tradingFee = 0.001 * 2; // buy and sell
 const marginFee = 0.001 * 2; // buy and sell earnings
@@ -276,53 +339,51 @@ const changeTime = trades => {
 };
 
 const generateTest = async () => {
-  const tradeData = await fetchTrades(240); // max amount of timesteps to remove
+  const tradeData = await fetchTrades();
   const data = pipe(
-    tradeData,
-    [percentageDifference, 'price'],
-    [expMovingAvg, 10, 'EMA10'],
-    [expMovingAvg, 30, 'EMA30'],
-    [expMovingAvg, 60, 'EMA60'],
-    [expMovingAvg, 90, 'EMA90'],
-    [expMovingAvg, 120, 'EMA120'],
-    [expMovingAvg, 240, 'EMA240'],
-    [relStrIndex, 10, 'RSI10'],
-    [relStrIndex, 30, 'RSI30'],
-    [relStrIndex, 60, 'RSI60'],
-    [relStrIndex, 90, 'RSI90'],
-    [relStrIndex, 120, 'RSI120'],
-    [relStrIndex, 240, 'RSI240'],
-    [movingAvg, 10, 'MA10'],
-    [movingAvg, 30, 'MA30'],
-    [movingAvg, 60, 'MA60'],
-    [movingAvg, 90, 'MA90'],
-    [movingAvg, 120, 'MA120'],
-    [movingAvg, 240, 'MA240'],
+    tradeData.map(t => ({ time: t.time, volume: t.volume, realPrice: t.realPrice })),
+    [exponentialSmoothing, 'price'],
+    [stochasticOscillator, 14, 'STO14'],
+    [williamsR, 14, 'WR14'],
+    [priceRateOfChange, 14, 'PROC14'],
+    [stdDeviation, 5, 'STD5'],
+    [stdDeviation, 20, 'STD20'],
+    [stdDeviation, 50, 'STD50'],
+    [stdDeviation, 200, 'STD200'],
+    [expMovingAvg, 12, 'EMA12'],
+    [expMovingAvg, 26, 'EMA26'],
+    [expMovingAvg, 50, 'EMA50'],
+    [expMovingAvg, 200, 'EMA200'],
+    [relStrIndex, 9, 'RSI9'],
+    [relStrIndex, 14, 'RSI14'],
+    [movingAvg, 5, 'MA5'],
+    [movingAvg, 20, 'MA20'],
+    [movingAvg, 50, 'MA50'],
+    [movingAvg, 200, 'MA200'],
     [onVolumeBalance, 'OVB'],
     [expectedAction]
-  );
+  ).slice(200); // max amount of timesteps to remove
   await aws.uploadData(data);
   const validation = await validator.validate(
     10,
     [
-      'MA10',
-      'MA30',
-      'MA60',
-      'MA90',
-      'MA120',
-      'MA240',
-      'EMA10',
-      'EMA30',
-      'EMA60',
-      'EMA90',
-      'EMA120',
-      'EMA240',
-      'RSI10',
-      'RSI30',
-      'RSI60',
-      'RSI90',
-      'RSI120',
-      'RSI240',
+      'PROC14',
+      'WR14',
+      'STO14',
+      'STD5',
+      'STD20',
+      'STD50',
+      'STD200',
+      'MA5',
+      'MA20',
+      'MA50',
+      'MA200',
+      'EMA12',
+      'EMA26',
+      'EMA50',
+      'EMA200',
+      'RSI9',
+      'RSI14',
       'OVB',
       'price'
     ],
@@ -331,16 +392,23 @@ const generateTest = async () => {
   logger.info(`VALIDATION RESULT ${validation}`);
 };
 
-try {
-  generateTest();
-} catch (err) {
-  logger.error(err);
-}
+// try {
+//   generateTest();
+// } catch (err) {
+//   logger.error(err);
+// }
 
 module.exports = {
-  percentageDifference,
+  exponentialSmoothing,
   movingAvg,
   expMovingAvg,
+  priceRateOfChange,
+  onVolumeBalance,
+  stdDeviation,
+  williamsR,
+  stochasticOscillator,
   getPricesPerTimestep,
-  relStrIndex
+  relStrIndex,
+  fetchTrades,
+  expectedAction
 };
