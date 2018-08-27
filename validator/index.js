@@ -118,6 +118,4 @@ const validateResult = async () => {
   );
 };
 
-validateResult();
-
 module.exports = { validate, validateResult, calculateReturns, calculateMaxReturns };

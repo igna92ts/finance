@@ -188,8 +188,8 @@ const dumpToJson = population => {
 };
 
 const run = async () => {
-  const EPOCH_COUNT = 100;
-  const POPULATION_SIZE = 100;
+  const EPOCH_COUNT = 2;
+  const POPULATION_SIZE = 10;
   const existingData = await arima.fetchTrades();
   let data = arima.expectedAction(
     existingData.map(d => ({ time: d.time, realPrice: d.realPrice, volume: d.volume }))
