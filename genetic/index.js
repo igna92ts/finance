@@ -1,4 +1,5 @@
-const Random = require('random-js'),
+const fs = require('fs'),
+  Random = require('random-js'),
   mt = Random.engines.mt19937().autoSeed(),
   { pipe, chunkArray, mergeWithout } = require('../helpers'),
   treeBuilder = require('../lambda/tree'),
@@ -56,7 +57,7 @@ const decode = cromosome => {
 const getRandomInt = (min, max) => Random.integer(min, max)(mt);
 
 const generateCromosome = possibleGenes => {
-  return pickRandomElements(getRandomInt(100, 5000), possibleGenes);
+  return pickRandomElements(getRandomInt(100, 4000), possibleGenes);
 };
 
 const generatePopulation = (populationSize, geneArray) => {
@@ -78,7 +79,7 @@ const getSample = (size, data) => {
 
 const test = (rawData, population) => {
   let data = rawData;
-  return population.map((cromosome, popIndex) => {
+  const newPopulation = population.map((cromosome, popIndex) => {
     const decodedCromosome = decode(cromosome);
     const features = decodedCromosome.map(g => (g.param ? `${g.fn.name}${g.param}` : `${g.fn.name}`));
     data = pipe(
@@ -87,17 +88,15 @@ const test = (rawData, population) => {
       ...decodedCromosome.map(
         gene =>
           gene.param ? [gene.fn, gene.param, `${gene.fn.name}${gene.param}`] : [gene.fn, `${gene.fn.name}`]
-      ),
-      [arima.expectedAction]
+      )
     );
-    const FOLDS = 5;
+    const FOLDS = 10;
     const chunked = chunkArray(data, FOLDS);
     const classifications = chunked.map((chunk, index) => {
-      console.log(`Chunk ${index} for member ${popIndex} of the population`);
       const trainingData = mergeWithout(index, chunked);
-      const sample = getSample(1000, data);
-      const treeStr = treeBuilder.buildTree(features, sample);
-      const tree = eval(treeStr);
+      const sample = getSample(500, data);
+      const treeObj = treeBuilder.buildTree(features, sample);
+      const tree = treeObj.fn;
       const cromosomePerf =
         chunk.reduce((res, c) => {
           const treeResult = tree(c);
@@ -110,29 +109,100 @@ const test = (rawData, population) => {
         }, 0) / chunk.length;
       return cromosomePerf;
     });
+    console.log(`Tested member ${popIndex} of the population`);
     return { cromosome, result: classifications.reduce((sum, c) => sum + c, 0) / classifications.length };
+  });
+  return {
+    newPopulation,
+    newData: data
+  };
+};
+
+const fnObjects = [
+  { fn: arima.movingAvg, takesParams: true },
+  { fn: arima.expMovingAvg, takesParams: true },
+  { fn: arima.priceRateOfChange, takesParams: true },
+  { fn: arima.williamsR, takesParams: true },
+  { fn: arima.stdDeviation, takesParams: true },
+  { fn: arima.stochasticOscillator, takesParams: true },
+  { fn: arima.relStrIndex, takesParams: true },
+  { fn: arima.onVolumeBalance, takesParams: false }
+];
+const possibleGenes = genes(fnObjects);
+const mutate = cromosome => {
+  return cromosome.map(c => {
+    const num1 = getRandomInt(0, 1000);
+    const num2 = getRandomInt(0, 1000);
+    if (num1 === num2) return Random.pick(mt, possibleGenes);
+    else return c;
+  });
+};
+
+const crossOver = (father, mother) => {
+  const fatherSplitPoint = getRandomInt(0, father.cromosome.length);
+  const fatherHead = father.cromosome.slice(0, fatherSplitPoint);
+  const fatherTail = father.cromosome.slice(fatherSplitPoint);
+
+  const motherSplitPoint = getRandomInt(0, mother.cromosome.length);
+  const motherHead = mother.cromosome.slice(0, motherSplitPoint);
+  const motherTail = mother.cromosome.slice(motherSplitPoint);
+
+  return [mutate([...fatherHead, ...motherTail]), mutate([...motherHead, ...fatherTail])];
+};
+
+const createChildrenPair = weightedPopulation => {
+  const rndFather = getRandomInt(0, 100);
+  const father = weightedPopulation.find(w => rndFather >= w.weight[0] && rndFather + 1 < w.weight[1]);
+  const rndMother = getRandomInt(0, 100);
+  const mother = weightedPopulation.find(w => rndMother >= w.weight[0] && rndMother + 1 < w.weight[1]);
+  return crossOver(father, mother);
+};
+
+const generateChildren = population => {
+  const total = population.reduce((t, p) => t + p.result, 0);
+  let temp = 0;
+  const weightedPopulation = population.map(p => {
+    const proportion = temp + (p.result * 100) / total;
+    const weightedMember = {
+      ...p,
+      weight: [temp, proportion]
+    };
+    temp = proportion;
+    return weightedMember;
+  });
+  let children = [];
+  while (children.length < population.length) {
+    children = [...children, ...createChildrenPair(weightedPopulation)];
+  }
+  return children;
+};
+
+const dumpToJson = population => {
+  const json = JSON.stringify(population);
+  return new Promise((resolve, reject) => {
+    fs.writeFile('genetic_result.json', json, err => {
+      if (err) reject(err);
+      else console.log('SUCCESS');
+    });
   });
 };
 
 const run = async () => {
   const EPOCH_COUNT = 100;
-  const fnObjects = [
-    { fn: arima.movingAvg, takesParams: true },
-    { fn: arima.expMovingAvg, takesParams: true },
-    { fn: arima.priceRateOfChange, takesParams: true },
-    { fn: arima.williamsR, takesParams: true },
-    { fn: arima.stdDeviation, takesParams: true },
-    { fn: arima.stochasticOscillator, takesParams: true },
-    { fn: arima.relStrIndex, takesParams: true },
-    { fn: arima.onVolumeBalance, takesParams: false }
-  ];
+  const POPULATION_SIZE = 100;
   const existingData = await arima.fetchTrades();
-  const rawData = existingData.map(d => ({ time: d.time, realPrice: d.realPrice, volume: d.volume }));
-  const initialPopulation = generatePopulation(100, genes(fnObjects));
+  let data = arima.expectedAction(
+    existingData.map(d => ({ time: d.time, realPrice: d.realPrice, volume: d.volume }))
+  );
+  const initialPopulation = generatePopulation(POPULATION_SIZE, genes(fnObjects));
+  let population = initialPopulation;
   for (let i = 0; i < EPOCH_COUNT; i++) {
-    const testResults = test(rawData, initialPopulation);
-    debugger;
+    console.log(`////////////////////   EPOCH NUMBER ${i}  ////////////////////////`);
+    const testResults = test(data, population);
+    population = generateChildren(testResults.newPopulation);
+    data = testResults.newData;
   }
+  await dumpToJson(population);
 };
 
 run();

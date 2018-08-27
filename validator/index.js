@@ -30,17 +30,26 @@ const calculateReturns = trades => {
     USD: 1000,
     CUR: 0
   };
+  const fees = 0.001 + 0.0005; // buy/sell fees and quick sell/buy
+  let previousAction = 'NOTHING';
+  let buyAmount = 0.1;
+  let sellAmount = 0.1;
   trades.forEach(t => {
     if (t.action === 'BUY' && money.USD > 0) {
-      money.CUR += (money.USD * 0.1) / (t.realPrice + t.realPrice * 0.001); // I add a little to buy it fast
-      money.USD -= money.USD * 0.1;
+      if (previousAction === 'BUY' && buyAmount <= 0.5) buyAmount += 0.1;
+      else buyAmount = 0.1;
+      money.CUR += (money.USD * buyAmount) / (t.realPrice + t.realPrice * fees); // I add a little to buy it fast
+      money.USD -= money.USD * buyAmount;
     }
     if (t.action === 'SELL') {
-      money.USD += money.CUR * (t.realPrice - t.realPrice * 0.001);
-      money.CUR = 0;
+      if (previousAction === 'SELL' && sellAmount <= 0.5) sellAmount += 0.1;
+      else sellAmount = 0.1;
+      money.USD += money.CUR * sellAmount * (t.realPrice - t.realPrice * fees);
+      money.CUR -= money.CUR * sellAmount;
     }
+    previousAction = t.action;
   });
-  return money;
+  return money.USD + money.CUR * trades[trades.length - 1].realPrice;
 };
 
 const calculateMaxReturns = trades => {
@@ -51,11 +60,11 @@ const calculateMaxReturns = trades => {
   trades.forEach((t, index) => {
     if (trades[index + 1]) {
       if (trades[index + 1].realPrice > t.realPrice && money.USD > 0) {
-        money.CUR = money.USD / t.realPrice;
-        money.USD = 0;
+        money.CUR += (money.USD * 0.1) / (t.realPrice + t.realPrice * 0.001); // I add a little to buy it fast
+        money.USD -= money.USD * 0.1;
       }
       if (trades[index + 1].realPrice < t.realPrice && money.CUR > 0) {
-        money.USD = money.CUR * t.realPrice;
+        money.USD += money.CUR * (t.realPrice - t.realPrice * 0.001);
         money.CUR = 0;
       }
     }
@@ -81,8 +90,6 @@ const validateResult = async () => {
   const groupedTrees = helpers.groupBy(trees, 'fold');
   const chunks = await aws.getData('validation-chunks');
   const originalData = await aws.getData();
-  const maxReturns = await calculateMaxReturns(originalData);
-  const expectedReturns = await calculateReturns(originalData);
 
   const comparisons = Object.keys(groupedTrees).map(fold => {
     const forest = groupedTrees[fold].map(t => t.tree);
@@ -92,10 +99,25 @@ const validateResult = async () => {
         if (c.action === results[i]) return sum + 1;
         else return sum;
       }, 0) / chunks[fold].length;
-    return compare;
+    const expectedReturns = calculateReturns(chunks[fold]);
+    const predictedReturns = calculateReturns(
+      chunks[fold].map((c, index) => ({ ...c, action: results[index] }))
+    );
+    return { compare, predictedReturns, expectedReturns };
   });
-  console.log(JSON.stringify(comparisons, 0, 2));
-  return comparisons.reduce((a, b) => a + b, 0) / Object.keys(groupedTrees).length;
+  console.log(
+    JSON.stringify(
+      {
+        accuracy: comparisons.reduce((a, b) => a + b.compare, 0) / Object.keys(groupedTrees).length,
+        predictedReturns: comparisons.reduce((a, b) => a + b.predictedReturns, 0) / comparisons.length,
+        expectedReturns: comparisons.reduce((a, b) => a + b.expectedReturns, 0) / comparisons.length
+      },
+      0,
+      2
+    )
+  );
 };
 
-module.exports = { validate, validateResult };
+validateResult();
+
+module.exports = { validate, validateResult, calculateReturns, calculateMaxReturns };

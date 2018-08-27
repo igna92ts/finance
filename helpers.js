@@ -50,9 +50,9 @@ const groupBy = (xs, key) => {
 
 const pipe = (initial, ...foos) => {
   return foos.reduce((result, f) => {
-    const spinner = logger.spinner(`${f[0].name} ${f[1] || ''}`).start();
+    // const spinner = logger.spinner(`${f[0].name} ${f[1] || ''}`).start();
     const newResult = f[0](result, ...f.slice(1));
-    spinner.succeed();
+    // spinner.succeed();
     return newResult;
   }, initial);
 };

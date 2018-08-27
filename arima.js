@@ -7,7 +7,8 @@ const moment = require('moment'),
   validator = require('./validator'),
   rndForest = require('./forest'),
   aws = require('./amazon'),
-  logger = require('./logger');
+  logger = require('./logger'),
+  { calculateReturns, calculateMaxReturns } = require('./validator');
 
 const TIME_CONSTRAINT = 'minutes';
 const TIME_MS = 60000;
@@ -60,7 +61,7 @@ const fillTrades = async historicalTrades => {
 };
 
 const BASE_FETCH_AMOUNT = 1000000;
-const MAX_TRADES = 20160; // 2 days in minutes
+const MAX_TRADES = 43200; // 2 days in minutes
 const fetchTrades = async () => {
   const existingTradeData = await aws.getData();
   if (
@@ -277,29 +278,61 @@ const relStrIndex = (trades, time, label = 'RSI') => {
   return rsiArray;
 };
 
+// const TRANSACTION_TIME = 1;
+// const tradingFee = 0.001 * 2; // buy and sell
+// const marginFee = 0.001 * 2; // buy and sell earnings
+// const fastSellingMargin = 0.001 * 2; // 0.5% to buy and sell fast
+// const accumulatedFees = price => price + (price * tradingFee + price * marginFee + price * fastSellingMargin);
+// const expectedAction = trades => {
+//   return trades.reduce((res, t, index) => {
+//     if (t.action) return [...res, t];
+//     const newTrades = trades.slice(index);
+//     if (newTrades.length === 0) return res;
+//     if (trades[index + 1].realPrice >= t.realPrice) {
+//       let accumulated = 0;
+//       let average = 0;
+//       for (let i = 0; i < newTrades.length; i++) {
+//         accumulated += newTrades[i].realPrice;
+//         average = accumulated / (i + 1);
+//         if (!newTrades[i + TRANSACTION_TIME]) return [...res, { ...t, action: 'NOTHING' }];
+//         if (average < t.realPrice) continue;
+//         if (average > accumulatedFees(t.realPrice) && newTrades[i].realPrice > accumulatedFees(t.realPrice)) {
+//           return [
+//             ...res,
+//             {
+//               ...t,
+//               action: 'BUY'
+//             }
+//           ];
+//         }
+//       }
+//       return [...res, { ...t, action: 'NOTHING' }];
+//     } else if (newTrades[TRANSACTION_TIME].realPrice < t.realPrice) {
+//       return [...res, { ...t, action: 'SELL' }];
+//     } else {
+//       return [...res, { ...t, action: 'NOTHING' }];
+//     }
+//   }, []);
+// };
 
-const TRANSACTION_TIME = 5;
+const TRANSACTION_TIME = 1;
 const tradingFee = 0.001 * 2; // buy and sell
 const marginFee = 0.001 * 2; // buy and sell earnings
-const fastSellingMargin = 0.001 * 2; // 0.5% to buy and sell fast
+const fastSellingMargin = 0.0005 * 2; // 0.5% to buy and sell fast
 const accumulatedFees = price => price + (price * tradingFee + price * marginFee + price * fastSellingMargin);
 const expectedAction = trades => {
   return trades.reduce((res, t, index) => {
     if (t.action) return [...res, t];
-    const newTrades = trades.slice(index);
-    if (!newTrades[TRANSACTION_TIME]) return res;
-    if (trades[index + 1].realPrice >= t.realPrice) {
+    const newTrades = trades.slice(index + 1); // trades after this one
+    if (newTrades.length === 0) return [...res, { ...t, action: 'NOTHING' }];
+    if (newTrades[0].realPrice >= t.realPrice) {
       let accumulated = 0;
       let average = 0;
       for (let i = 0; i < newTrades.length; i++) {
         accumulated += newTrades[i].realPrice;
         average = accumulated / (i + 1);
-        if (!newTrades[i + TRANSACTION_TIME]) return [...res, { ...t, action: 'NOTHING' }];
-        if (average < t.realPrice) continue;
-        if (
-          average > accumulatedFees(t.realPrice) &&
-          newTrades[i + TRANSACTION_TIME].realPrice > accumulatedFees(t.realPrice)
-        ) {
+        if (average < t.realPrice) return [...res, { ...t, action: 'NOTHING' }];
+        if (average > accumulatedFees(t.realPrice) && newTrades[i].realPrice > accumulatedFees(t.realPrice)) {
           return [
             ...res,
             {
@@ -310,7 +343,7 @@ const expectedAction = trades => {
         }
       }
       return [...res, { ...t, action: 'NOTHING' }];
-    } else if (newTrades[TRANSACTION_TIME].realPrice < t.realPrice) {
+    } else if (newTrades[0].realPrice < t.realPrice) {
       return [...res, { ...t, action: 'SELL' }];
     } else {
       return [...res, { ...t, action: 'NOTHING' }];
@@ -343,10 +376,14 @@ const generateTest = async () => {
   const data = pipe(
     tradeData.map(t => ({ time: t.time, volume: t.volume, realPrice: t.realPrice })),
     [exponentialSmoothing, 'price'],
+    [stochasticOscillator, 9, 'STO9'],
     [stochasticOscillator, 14, 'STO14'],
+    [williamsR, 9, 'WR9'],
     [williamsR, 14, 'WR14'],
+    [priceRateOfChange, 9, 'PROC9'],
     [priceRateOfChange, 14, 'PROC14'],
     [stdDeviation, 5, 'STD5'],
+    [stdDeviation, 10, 'STD10'],
     [stdDeviation, 20, 'STD20'],
     [stdDeviation, 50, 'STD50'],
     [stdDeviation, 200, 'STD200'],
@@ -357,24 +394,33 @@ const generateTest = async () => {
     [relStrIndex, 9, 'RSI9'],
     [relStrIndex, 14, 'RSI14'],
     [movingAvg, 5, 'MA5'],
+    [movingAvg, 10, 'MA10'],
     [movingAvg, 20, 'MA20'],
     [movingAvg, 50, 'MA50'],
     [movingAvg, 200, 'MA200'],
     [onVolumeBalance, 'OVB'],
     [expectedAction]
-  ).slice(200); // max amount of timesteps to remove
+  ); // .slice(200); // max amount of timesteps to remove
   await aws.uploadData(data);
+  const returns = calculateReturns(data);
+  const maxReturns = calculateMaxReturns(data);
+  console.log(returns);
   const validation = await validator.validate(
     10,
     [
+      'PROC9',
       'PROC14',
+      'WR9',
       'WR14',
+      'STO9',
       'STO14',
       'STD5',
+      'STD10',
       'STD20',
       'STD50',
       'STD200',
       'MA5',
+      'MA10',
       'MA20',
       'MA50',
       'MA200',
@@ -410,5 +456,6 @@ module.exports = {
   getPricesPerTimestep,
   relStrIndex,
   fetchTrades,
-  expectedAction
+  expectedAction,
+  generateTest
 };

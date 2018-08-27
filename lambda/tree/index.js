@@ -98,16 +98,19 @@ const buildTree = (features, data) => {
   if (split.gain === 0) {
     const proportion = calculateClassProportion(getUniqueValues('action', data), data);
     const proportionText = JSON.stringify(proportion);
-    return `(newData => (${proportionText}))`;
+    return { str: `(newData => (${proportionText}))`, fn: newData => proportion };
   }
   const { matched, rest } = split;
 
   const matchedQuestion = buildTree(features, matched);
   const restQuestion = buildTree(features, rest);
   const { question } = split;
-  return `newValue => (${
-    question.str
-  })(newValue) ? (${matchedQuestion})(newValue) : (${restQuestion})(newValue)`;
+  return {
+    str: `newValue => (${question.str})(newValue) ? (${matchedQuestion.str})(newValue) : (${
+      restQuestion.str
+    })(newValue)`,
+    fn: newValue => (question.fn(newValue) ? matchedQuestion.fn(newValue) : restQuestion.fn(newValue))
+  };
 };
 
 module.exports = { buildTree };
