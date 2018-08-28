@@ -92,8 +92,10 @@ const findBestSplit = (features, data) => {
   );
 };
 
-const buildTree = (features, data) => {
-  const rnd = pickRandomFeatures(getRandomInt(1, features.length), features);
+const buildTree = (features, data, random = true) => {
+  let rnd = [];
+  if (random) rnd = pickRandomFeatures(getRandomInt(1, features.length), features);
+  else rnd = features;
   const split = findBestSplit(rnd, data);
   if (split.gain === 0) {
     const proportion = calculateClassProportion(getUniqueValues('action', data), data);

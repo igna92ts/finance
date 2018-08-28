@@ -13,41 +13,11 @@ const pickRandomElements = (count, array) => {
   return elements;
 };
 
-const genes = foos => {
-  const values = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-  return [...values, ...foos];
-};
-
-const MAX_DECODED_SIZE = 50; // max amount of features
+const MAX_DECODED_SIZE = 40; // max amount of features
 const decode = cromosome => {
-  let temp = { param: 0 };
-  const existing = [];
   const decoded = cromosome.reduce((res, gene, index) => {
-    if (typeof gene === 'number' && !temp.fn) return res;
-    if (typeof gene === 'object' && !gene.takesParams) {
-      if (!existing.some(e => e === gene.fn.toString())) {
-        existing.push(gene.fn.toString());
-        res.push({ fn: gene.fn });
-      }
-      return res;
-    }
-    if (
-      typeof gene === 'object' &&
-      (typeof cromosome[index - 1] !== 'object' ||
-        (typeof cromosome[index - 1] === 'object' && !cromosome[index - 1].takesParams))
-    )
-      temp.fn = gene.fn;
-    if (typeof gene === 'number') temp.param += gene;
-    const strGene = `${temp.fn.toString()}${temp.param}`;
-    if (
-      typeof cromosome[index + 1] !== 'number' &&
-      typeof gene === 'number' &&
-      !existing.some(e => e === strGene) &&
-      temp.param > 1
-    ) {
-      res.push(temp);
-      existing.push(strGene);
-      temp = { param: 0 };
+    if (!res.some(e => e === gene)) {
+      res.push(gene);
     }
     return res;
   }, []);
@@ -56,8 +26,9 @@ const decode = cromosome => {
 
 const getRandomInt = (min, max) => Random.integer(min, max)(mt);
 
+const CROMOSOME_SIZE = 1000;
 const generateCromosome = possibleGenes => {
-  return pickRandomElements(getRandomInt(100, 4000), possibleGenes);
+  return pickRandomElements(CROMOSOME_SIZE, possibleGenes);
 };
 
 const generatePopulation = (populationSize, geneArray) => {
@@ -77,25 +48,15 @@ const getSample = (size, data) => {
   return sample;
 };
 
-const test = (rawData, population) => {
-  let data = rawData;
-  const newPopulation = population.map((cromosome, popIndex) => {
-    const decodedCromosome = decode(cromosome);
-    const features = decodedCromosome.map(g => (g.param ? `${g.fn.name}${g.param}` : `${g.fn.name}`));
-    data = pipe(
-      data,
-      [arima.exponentialSmoothing, 'price'],
-      ...decodedCromosome.map(
-        gene =>
-          gene.param ? [gene.fn, gene.param, `${gene.fn.name}${gene.param}`] : [gene.fn, `${gene.fn.name}`]
-      )
-    );
+const test = (data, population) => {
+  return population.map((cromosome, popIndex) => {
+    const features = decode(cromosome);
     const FOLDS = 10;
     const chunked = chunkArray(data, FOLDS);
     const classifications = chunked.map((chunk, index) => {
       const trainingData = mergeWithout(index, chunked);
-      const sample = getSample(500, data);
-      const treeObj = treeBuilder.buildTree(features, sample);
+      const sample = getSample(250, data);
+      const treeObj = treeBuilder.buildTree(features, sample, false);
       const tree = treeObj.fn;
       const cromosomePerf =
         chunk.reduce((res, c) => {
@@ -112,10 +73,6 @@ const test = (rawData, population) => {
     console.log(`Tested member ${popIndex} of the population`);
     return { cromosome, result: classifications.reduce((sum, c) => sum + c, 0) / classifications.length };
   });
-  return {
-    newPopulation,
-    newData: data
-  };
 };
 
 const fnObjects = [
@@ -128,8 +85,7 @@ const fnObjects = [
   { fn: arima.relStrIndex, takesParams: true },
   { fn: arima.onVolumeBalance, takesParams: false }
 ];
-const possibleGenes = genes(fnObjects);
-const mutate = cromosome => {
+const mutate = (cromosome, possibleGenes) => {
   return cromosome.map(c => {
     const num1 = getRandomInt(0, 1000);
     const num2 = getRandomInt(0, 1000);
@@ -138,27 +94,29 @@ const mutate = cromosome => {
   });
 };
 
-const crossOver = (father, mother) => {
-  const fatherSplitPoint = getRandomInt(0, father.cromosome.length);
-  const fatherHead = father.cromosome.slice(0, fatherSplitPoint);
-  const fatherTail = father.cromosome.slice(fatherSplitPoint);
+const crossOver = (father, mother, possibleGenes) => {
+  const splitPoint = getRandomInt(0, CROMOSOME_SIZE);
+  const fatherHead = father.cromosome.slice(0, splitPoint);
+  const fatherTail = father.cromosome.slice(splitPoint);
 
-  const motherSplitPoint = getRandomInt(0, mother.cromosome.length);
-  const motherHead = mother.cromosome.slice(0, motherSplitPoint);
-  const motherTail = mother.cromosome.slice(motherSplitPoint);
+  const motherHead = mother.cromosome.slice(0, splitPoint);
+  const motherTail = mother.cromosome.slice(splitPoint);
 
-  return [mutate([...fatherHead, ...motherTail]), mutate([...motherHead, ...fatherTail])];
+  return [
+    mutate([...fatherHead, ...motherTail], possibleGenes),
+    mutate([...motherHead, ...fatherTail], possibleGenes)
+  ];
 };
 
-const createChildrenPair = weightedPopulation => {
-  const rndFather = getRandomInt(0, 100);
-  const father = weightedPopulation.find(w => rndFather >= w.weight[0] && rndFather + 1 < w.weight[1]);
-  const rndMother = getRandomInt(0, 100);
-  const mother = weightedPopulation.find(w => rndMother >= w.weight[0] && rndMother + 1 < w.weight[1]);
-  return crossOver(father, mother);
+const createChildrenPair = (weightedPopulation, possibleGenes) => {
+  const rndFather = getRandomInt(0, 99);
+  const father = weightedPopulation.find(w => rndFather >= w.weight[0] && rndFather < w.weight[1]);
+  const rndMother = getRandomInt(0, 99);
+  const mother = weightedPopulation.find(w => rndMother >= w.weight[0] && rndMother < w.weight[1]);
+  return crossOver(father, mother, possibleGenes);
 };
 
-const generateChildren = population => {
+const generateChildren = (population, possibleGenes) => {
   const total = population.reduce((t, p) => t + p.result, 0);
   let temp = 0;
   const weightedPopulation = population.map(p => {
@@ -172,7 +130,7 @@ const generateChildren = population => {
   });
   let children = [];
   while (children.length < population.length) {
-    children = [...children, ...createChildrenPair(weightedPopulation)];
+    children = [...children, ...createChildrenPair(weightedPopulation, possibleGenes)];
   }
   return children;
 };
@@ -187,20 +145,43 @@ const dumpToJson = population => {
   });
 };
 
+const calculatePeriods = data => {
+  const step = 5;
+  const features = [];
+  const foos = fnObjects.reduce((res, fnObject) => {
+    if (fnObject.takesParams) {
+      for (let i = step; i <= 50; i += step) {
+        features.push(`${fnObject.fn.name}${i}`);
+        res.push([fnObject.fn, i, `${fnObject.fn.name}${i}`]);
+      }
+    } else {
+      features.push(`${fnObject.fn.name}`);
+      res.push([fnObject.fn, `${fnObject.fn.name}`]);
+    }
+    return res;
+  }, []);
+  return {
+    data: pipe(
+      data.map(d => ({ time: d.time, realPrice: d.realPrice, volume: d.volume })),
+      [arima.exponentialSmoothing, 'price'],
+      ...foos,
+      [arima.expectedAction]
+    ),
+    possibleGenes: features
+  };
+};
+
 const run = async () => {
-  const EPOCH_COUNT = 2;
-  const POPULATION_SIZE = 10;
+  const EPOCH_COUNT = 100;
+  const POPULATION_SIZE = 100;
   const existingData = await arima.fetchTrades();
-  let data = arima.expectedAction(
-    existingData.map(d => ({ time: d.time, realPrice: d.realPrice, volume: d.volume }))
-  );
-  const initialPopulation = generatePopulation(POPULATION_SIZE, genes(fnObjects));
+  const { data, possibleGenes } = calculatePeriods(existingData);
+  const initialPopulation = generatePopulation(POPULATION_SIZE, possibleGenes);
   let population = initialPopulation;
   for (let i = 0; i < EPOCH_COUNT; i++) {
     console.log(`////////////////////   EPOCH NUMBER ${i}  ////////////////////////`);
-    const testResults = test(data, population);
-    population = generateChildren(testResults.newPopulation);
-    data = testResults.newData;
+    const newPopulation = test(data, population);
+    population = generateChildren(newPopulation, possibleGenes);
   }
   await dumpToJson(population);
 };
