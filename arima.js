@@ -393,6 +393,8 @@ const generateTest = async () => {
     [expMovingAvg, 200, 'EMA200'],
     [relStrIndex, 9, 'RSI9'],
     [relStrIndex, 14, 'RSI14'],
+    [relStrIndex, 50, 'RSI50'],
+    [relStrIndex, 200, 'RSI200'],
     [movingAvg, 5, 'MA5'],
     [movingAvg, 10, 'MA10'],
     [movingAvg, 20, 'MA20'],
@@ -430,6 +432,8 @@ const generateTest = async () => {
       'EMA200',
       'RSI9',
       'RSI14',
+      'RSI50',
+      'RSI200',
       'OVB',
       'price'
     ],

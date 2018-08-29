@@ -179,7 +179,7 @@ const run = async () => {
   const initialPopulation = generatePopulation(POPULATION_SIZE, possibleGenes);
   let population = initialPopulation;
   for (let i = 0; i < EPOCH_COUNT; i++) {
-    console.log(`////////////////////   EPOCH NUMBER ${i}  ////////////////////////`);
+    console.log(`////////////////////   EPOCH NUMBER ${i}   ////////////////////////`);
     const newPopulation = test(data, population);
     population = generateChildren(newPopulation, possibleGenes);
   }
