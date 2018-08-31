@@ -106,6 +106,7 @@ const validateResult = async () => {
     return { compare, predictedReturns, expectedReturns };
   });
   console.log(
+    JSON.stringify(comparisons, 0, 2),
     JSON.stringify(
       {
         accuracy: comparisons.reduce((a, b) => a + b.compare, 0) / Object.keys(groupedTrees).length,

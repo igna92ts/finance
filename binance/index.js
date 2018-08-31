@@ -5,7 +5,7 @@ const request = require('request'),
   logger = require('../logger');
 
 const key = '8tc4fJ1ddM2VmnbFzTk3f7hXsrehnT8wP7u6EdIoVq7gyXWiL852TP1wnKp0qaGM';
-const symbol = 'eosbtc';
+const symbol = 'enjbtc';
 
 // let BTCPRICE = 0;
 // const ws = new webSocket('wss://stream.binance.com:9443/ws/btcusdt@ticker');

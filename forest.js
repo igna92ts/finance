@@ -45,7 +45,7 @@ const buildTree = (features, fold, count) => {
 
 const buildForest = (features, fold) => {
   const forestPromises = [];
-  const forestSize = 256;
+  const forestSize = 1024;
   logger.progress(`forest-${fold}`, forestSize, `Fold #${fold}`);
   for (let i = 0; i < forestSize; i++) {
     const tree = buildTree(features, fold, i);

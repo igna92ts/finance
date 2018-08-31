@@ -60,7 +60,7 @@ const fillTrades = async historicalTrades => {
   return fillPricesPerTimestep(historicalTrades, finishTime, missingTrades);
 };
 
-const BASE_FETCH_AMOUNT = 1000000;
+const BASE_FETCH_AMOUNT = 100000;
 const MAX_TRADES = 43200; // 2 days in minutes
 const fetchTrades = async () => {
   const existingTradeData = await aws.getData();
@@ -78,20 +78,27 @@ const fetchTrades = async () => {
   }
 };
 
-const differenceTrades = trades => {
+const percentageDifference = (trades, label = 'price') => {
   return trades.reduce((res, t, index) => {
     if (index > 0) {
-      res.push({
-        price: t.price - trades[index - 1].price,
-        time: t.time
-      });
+      const difference = t.realPrice - trades[index - 1].realPrice;
+      const percent = (difference * 100) / trades[index - 1].realPrice;
+      if (t[label] !== undefined && t.realPrice !== undefined) {
+        res.push(t);
+      } else {
+        res.push({
+          realPrice: t.realPrice,
+          [label]: percent,
+          time: t.time
+        });
+      }
     }
     return res;
   }, []);
 };
 
 const exponentialSmoothing = (trades, label = 'price') => {
-  const SMOOTHING_FACTOR = 0.5;
+  const SMOOTHING_FACTOR = 0.3;
   return trades.reduce((res, t, index) => {
     if (index === 0) res.push({ ...t, [label]: t.realPrice });
     else {
@@ -386,21 +393,17 @@ const generateTest = async () => {
     [stdDeviation, 10, 'STD10'],
     [stdDeviation, 20, 'STD20'],
     [stdDeviation, 50, 'STD50'],
-    [stdDeviation, 200, 'STD200'],
     [expMovingAvg, 12, 'EMA12'],
     [expMovingAvg, 26, 'EMA26'],
     [expMovingAvg, 50, 'EMA50'],
-    [expMovingAvg, 200, 'EMA200'],
     [relStrIndex, 9, 'RSI9'],
     [relStrIndex, 14, 'RSI14'],
     [relStrIndex, 50, 'RSI50'],
-    [relStrIndex, 200, 'RSI200'],
     [movingAvg, 5, 'MA5'],
     [movingAvg, 10, 'MA10'],
     [movingAvg, 20, 'MA20'],
     [movingAvg, 50, 'MA50'],
-    [movingAvg, 200, 'MA200'],
-    [onVolumeBalance, 'OVB'],
+    // [onVolumeBalance, 'OVB'],
     [expectedAction]
   ); // .slice(200); // max amount of timesteps to remove
   await aws.uploadData(data);
@@ -420,24 +423,24 @@ const generateTest = async () => {
       'STD10',
       'STD20',
       'STD50',
-      'STD200',
+      // 'STD200',
       'MA5',
       'MA10',
       'MA20',
       'MA50',
-      'MA200',
+      // 'MA200',
       'EMA12',
       'EMA26',
       'EMA50',
-      'EMA200',
+      // 'EMA200',
       'RSI9',
       'RSI14',
       'RSI50',
-      'RSI200',
-      'OVB',
+      // 'RSI200',
+      // 'OVB',
       'price'
     ],
-    data
+    data.slice(50)
   );
   logger.info(`VALIDATION RESULT ${validation}`);
 };

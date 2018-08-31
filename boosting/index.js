@@ -25,36 +25,50 @@ const getWeightedSample = (size, data) => {
     return weightedMember;
   });
   const sample = [];
+  const positiveClass = Random.pick(mt, ['BUY', 'SELL']);
   for (let i = 0; i < size; i++) {
+    const d = getWeightedRandomElement(weightedData, totalWeight);
+    if (d.action !== positiveClass) d.action = 'NOTHING';
     sample.push(getWeightedRandomElement(weightedData, totalWeight));
   }
   return sample.map(s => s.row);
 };
 
-const createTree = (existingData, features) => {
-  const data = existingData.map(d => ({ time: d.time, realPrice: d.realPrice, volume: d.volume }));
-  const sample = getWeightedSample(1000, data);
-  const treeObj = treeBuilder.buildTree(features, sample, false); // with all features, full tree
+const classify = (forest, trade) => {
+  const sum = forest.map(tree => tree(trade)).reduce(
+    (res, e) => {
+      const keys = Object.keys(e);
+      keys.forEach(k => {
+        res[k] += e[k];
+      });
+      return res;
+    },
+    { BUY: 0, NOTHING: 0, SELL: 0 }
+  );
+  return Object.keys(sum).reduce((t, k) => {
+    if (sum[k] === Math.max(...['BUY', 'NOTHING', 'SELL'].map(e => sum[e]))) return k;
+    else return t;
+  });
 };
 
 const test = (data, features) => {
-  const FOLDS = 10;
-  const SAMPLE_SIZE = 2000;
+  const FOLDS = 3;
+  const SAMPLE_SIZE = 50;
+  const FOREST_SIZE = 512;
   const chunked = chunkArray(data, FOLDS);
   const errorRows = [];
   const classifications = chunked.map((chunk, index) => {
     console.log(`CHUNK ${index}`);
     const trainingData = mergeWithout(index, chunked);
-    const sample = getWeightedSample(SAMPLE_SIZE, data);
-    const treeObj = treeBuilder.buildTree(features, sample, false);
-    const tree = treeObj.fn;
+    const forest = [];
+    for (let i = 0; i < FOREST_SIZE; i++) {
+      const sample = getWeightedSample(SAMPLE_SIZE, data);
+      const treeObj = treeBuilder.buildTree(features, sample);
+      forest.push(treeObj.fn);
+    }
     return (
       chunk.reduce((res, c) => {
-        const treeResult = tree(c.row);
-        const predictedAction = Object.keys(treeResult).reduce((t, k) => {
-          if (treeResult[k] === Math.max(...['BUY', 'NOTHING', 'SELL'].map(e => treeResult[e]))) return k;
-          else return t;
-        });
+        const predictedAction = classify(forest, c.row);
         if (c.row.action === predictedAction) return res + 1;
         else {
           errorRows.push(c.id);
@@ -72,7 +86,7 @@ const test = (data, features) => {
 const reWeightData = (weightedData, errorRows) => {
   return weightedData.map(d => {
     if (errorRows.some(e => e === d.id)) {
-      return { ...d, weight: d.weight + 5 };
+      return { ...d, weight: d.weight + 1 };
     } else return d;
   });
 };
@@ -101,21 +115,17 @@ const run = async () => {
     [arima.stdDeviation, 10, 'STD10'],
     [arima.stdDeviation, 20, 'STD20'],
     [arima.stdDeviation, 50, 'STD50'],
-    [arima.stdDeviation, 200, 'STD200'],
     [arima.expMovingAvg, 12, 'EMA12'],
     [arima.expMovingAvg, 26, 'EMA26'],
     [arima.expMovingAvg, 50, 'EMA50'],
-    [arima.expMovingAvg, 200, 'EMA200'],
     [arima.relStrIndex, 9, 'RSI9'],
     [arima.relStrIndex, 14, 'RSI14'],
     [arima.relStrIndex, 50, 'RSI50'],
-    [arima.relStrIndex, 200, 'RSI200'],
     [arima.movingAvg, 5, 'MA5'],
     [arima.movingAvg, 10, 'MA10'],
     [arima.movingAvg, 20, 'MA20'],
-    [arima.movingAvg, 50, 'MA50'],
-    [arima.movingAvg, 200, 'MA200'],
-    [arima.onVolumeBalance, 'OVB']
+    [arima.movingAvg, 50, 'MA50']
+    // [onVolumeBalance, 'OVB'],
   ];
   const features = foos.map(e => e[e.length - 1]);
   const data = pipe(
@@ -123,7 +133,7 @@ const run = async () => {
     ...foos,
     [arima.expectedAction]
   ); // .slice(200); // max amount of timesteps to remove
-  let weightedData = data.map((d, index) => ({ row: d, weight: 1, id: index }));
+  let weightedData = data.map((d, index) => ({ row: d, weight: d.action === 'NOTHING' ? 1 : 2, id: index }));
 
   for (let i = 0; i < 100; i++) {
     const testResult = test(weightedData, features);
