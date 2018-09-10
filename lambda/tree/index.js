@@ -80,27 +80,32 @@ const findBestSplit = (features, data) => {
 
           const gain = informationGain(matched, rest, currentUncertainty);
 
-          if (gain >= result.gain) return { question, gain, matched, rest };
+          if (gain >= result.gain) return { question, gain, matched, rest, questionFeature: key };
           return result;
         },
-        { gain: 0, question: { fn: d => d, str: `d => d` } }
+        { gain: 0, question: { fn: d => d, str: `d => d` }, questionFeature: null }
       );
       if (newResult.gain >= finalResult.gain) return newResult;
       else return finalResult;
     },
-    { gain: 0, question: { fn: d => d, str: `d => d` }, matched, rest }
+    { gain: 0, question: { fn: d => d, str: `d => d` }, matched, rest, questionFeature: null }
   );
 };
 
 const buildTree = (features, data, random = true) => {
   let rnd = [];
-  if (random) rnd = pickRandomFeatures(getRandomInt(1, features.length), features);
+  const MIN_FEATURES = 2;
+  if (random) rnd = pickRandomFeatures(getRandomInt(MIN_FEATURES, features.length), features);
   else rnd = features;
   const split = findBestSplit(rnd, data);
   if (split.gain === 0) {
     const proportion = calculateClassProportion(getUniqueValues('action', data), data);
     const proportionText = JSON.stringify(proportion);
-    return { str: `(newData => (${proportionText}))`, fn: newData => proportion };
+    return {
+      str: `(newData => (${proportionText}))`,
+      fn: newData => proportion,
+      questionFeatures: []
+    };
   }
   const { matched, rest } = split;
 
@@ -111,7 +116,12 @@ const buildTree = (features, data, random = true) => {
     str: `newValue => (${question.str})(newValue) ? (${matchedQuestion.str})(newValue) : (${
       restQuestion.str
     })(newValue)`,
-    fn: newValue => (question.fn(newValue) ? matchedQuestion.fn(newValue) : restQuestion.fn(newValue))
+    fn: newValue => (question.fn(newValue) ? matchedQuestion.fn(newValue) : restQuestion.fn(newValue)),
+    questionFeatures: [
+      ...matchedQuestion.questionFeatures,
+      ...restQuestion.questionFeatures,
+      { key: split.questionFeature, size: split.matched.length + split.rest.length, gain: split.gain }
+    ]
   };
 };
 

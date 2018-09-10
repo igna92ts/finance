@@ -3,7 +3,8 @@ const AWS = require('aws-sdk'),
   zip = new JSZip();
 
 const bucketName = 'igna92ts-finance';
-const sqsUrl = 'https://sqs.us-east-1.amazonaws.com/534322619540/finance-training';
+const sqsTrainingUrl = 'https://sqs.us-east-1.amazonaws.com/534322619540/finance-training';
+const sqsDoneUrl = 'https://sqs.us-east-1.amazonaws.com/534322619540/finance-training-done';
 
 AWS.config.update({
   accessKeyId: process.env.AWS_KEY,
@@ -23,14 +24,14 @@ const unzipFile = async data => {
 const receiveMessage = () => {
   return sqs
     .receiveMessage({
-      QueueUrl: sqsUrl
+      QueueUrl: sqsTrainingUrl
     })
     .promise()
     .then(data => {
       if (data.Messages) {
         const message = data.Messages[0];
         const deleteParams = {
-          QueueUrl: sqsUrl,
+          QueueUrl: sqsTrainingUrl,
           ReceiptHandle: message.ReceiptHandle
         };
         return sqs
@@ -43,6 +44,15 @@ const receiveMessage = () => {
       console.error(err);
       throw err;
     });
+};
+
+const sendMessage = payload => {
+  return sqs
+    .sendMessage({
+      MessageBody: JSON.stringify(payload),
+      QueueUrl: sqsDoneUrl
+    })
+    .promise();
 };
 
 const getData = (fileName = 'data') => {
@@ -78,4 +88,4 @@ const uploadTree = async treeObj => {
   });
 };
 
-module.exports = { getData, uploadTree, receiveMessage };
+module.exports = { getData, uploadTree, receiveMessage, sendMessage };

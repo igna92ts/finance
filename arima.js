@@ -14,6 +14,7 @@ const TIME_CONSTRAINT = 'minutes';
 const TIME_MS = 60000;
 
 const getPricesPerTimestep = historicalTrades => {
+  if (historicalTrades.length === 0) return historicalTrades;
   let initialTime = roundTime(historicalTrades[0].time, 1, TIME_CONSTRAINT, 'floor');
   const pricesPerTimestep = [
     {
@@ -173,7 +174,6 @@ const stdDeviation = (trades, time, label = 'STD') => {
     };
   });
 };
-
 
 const priceRateOfChange = (trades, time, label = 'PROC') => {
   return trades.map((t, index) => {
@@ -378,10 +378,8 @@ const changeTime = trades => {
   });
 };
 
-const generateTest = async () => {
-  const tradeData = await fetchTrades();
-  const data = pipe(
-    tradeData.map(t => ({ time: t.time, volume: t.volume, realPrice: t.realPrice })),
+const calculateFeatures = tradeData => {
+  const featureFunctions = [
     [exponentialSmoothing, 'price'],
     [stochasticOscillator, 9, 'STO9'],
     [stochasticOscillator, 14, 'STO14'],
@@ -402,47 +400,31 @@ const generateTest = async () => {
     [movingAvg, 5, 'MA5'],
     [movingAvg, 10, 'MA10'],
     [movingAvg, 20, 'MA20'],
-    [movingAvg, 50, 'MA50'],
-    // [onVolumeBalance, 'OVB'],
-    [expectedAction]
-  ); // .slice(200); // max amount of timesteps to remove
-  await aws.uploadData(data);
-  const returns = calculateReturns(data);
-  const maxReturns = calculateMaxReturns(data);
-  console.log(returns);
-  const validation = await validator.validate(
-    10,
-    [
-      'PROC9',
-      'PROC14',
-      'WR9',
-      'WR14',
-      'STO9',
-      'STO14',
-      'STD5',
-      'STD10',
-      'STD20',
-      'STD50',
-      // 'STD200',
-      'MA5',
-      'MA10',
-      'MA20',
-      'MA50',
-      // 'MA200',
-      'EMA12',
-      'EMA26',
-      'EMA50',
-      // 'EMA200',
-      'RSI9',
-      'RSI14',
-      'RSI50',
-      // 'RSI200',
-      // 'OVB',
-      'price'
-    ],
-    data.slice(50)
-  );
-  logger.info(`VALIDATION RESULT ${validation}`);
+    [movingAvg, 50, 'MA50']
+  ];
+  return {
+    data: pipe(
+      tradeData.map(t => ({ time: t.time, volume: t.volume, realPrice: t.realPrice })),
+      ...featureFunctions
+      // [onVolumeBalance, 'OVB'],
+    ),
+    features: featureFunctions.map(f => f[f.length - 1])
+  };
+};
+
+const generateTest = async () => {
+  const tradeData = await fetchTrades();
+  const { data, features } = calculateFeatures(tradeData);
+  const trainData = expectedAction(data);
+  await aws.uploadData(trainData);
+  const returns = calculateReturns(trainData);
+  const maxReturns = calculateMaxReturns(trainData);
+  // const validation = await validator.validate(
+  //   4,
+  //   features,
+  //   trainData.slice(50).slice(-10080) // hasta ahora con esto el mejor resultado§
+  // );
+  // logger.info(`VALIDATION RESULT ${validation}`);
 };
 
 // try {
@@ -452,6 +434,7 @@ const generateTest = async () => {
 // }
 
 module.exports = {
+  calculateFeatures,
   exponentialSmoothing,
   movingAvg,
   expMovingAvg,

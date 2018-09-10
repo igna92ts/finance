@@ -53,8 +53,8 @@ const classify = (forest, trade) => {
 
 const test = (data, features) => {
   const FOLDS = 3;
-  const SAMPLE_SIZE = 50;
-  const FOREST_SIZE = 512;
+  const SAMPLE_SIZE = 100;
+  const FOREST_SIZE = 1024;
   const chunked = chunkArray(data, FOLDS);
   const errorRows = [];
   const classifications = chunked.map((chunk, index) => {
@@ -133,7 +133,7 @@ const run = async () => {
     ...foos,
     [arima.expectedAction]
   ); // .slice(200); // max amount of timesteps to remove
-  let weightedData = data.map((d, index) => ({ row: d, weight: d.action === 'NOTHING' ? 1 : 2, id: index }));
+  let weightedData = data.map((d, index) => ({ row: d, weight: 1, id: index }));
 
   for (let i = 0; i < 100; i++) {
     const testResult = test(weightedData, features);

@@ -26,7 +26,12 @@ module.exports.createTree = (event, context, callback) => {
     .then(data => {
       const sample = getSample(SAMPLE_SIZE, data);
       const newTree = tree.buildTree(params.features, sample);
-      return aws.uploadTree({ tree: newTree.str, number: params.number, fold: params.fold });
+      return aws
+        .uploadTree({ tree: newTree.str, number: params.number, fold: params.fold })
+        .then(
+          () =>
+            params.fold === 'production' ? aws.sendMessage({ number: params.number }) : Promise.resolve()
+        );
     })
     .catch(console.error);
 };

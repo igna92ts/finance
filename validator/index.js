@@ -35,6 +35,8 @@ const calculateReturns = trades => {
   let buyAmount = 0.1;
   let sellAmount = 0.1;
   trades.forEach(t => {
+    const overSold = t.RSI9 < 40 && (t.RSI9 < t.RSI14 && t.RSI14 < t.RSI50);
+    const overBought = t.RSI9 > 60 && (t.RSI9 > t.RSI14 && t.RSI14 > t.RSI50);
     if (t.action === 'BUY' && money.USD > 0) {
       if (previousAction === 'BUY' && buyAmount <= 0.5) buyAmount += 0.1;
       else buyAmount = 0.1;
@@ -89,7 +91,6 @@ const validateResult = async () => {
   const trees = await aws.downloadTrees();
   const groupedTrees = helpers.groupBy(trees, 'fold');
   const chunks = await aws.getData('validation-chunks');
-  const originalData = await aws.getData();
 
   const comparisons = Object.keys(groupedTrees).map(fold => {
     const forest = groupedTrees[fold].map(t => t.tree);

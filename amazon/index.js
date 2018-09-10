@@ -6,6 +6,8 @@ const AWS = require('aws-sdk'),
 require('dotenv').config();
 
 const bucketName = 'igna92ts-finance';
+const sqsTrainingUrl = 'https://sqs.us-east-1.amazonaws.com/534322619540/finance-training';
+const sqsDoneUrl = 'https://sqs.us-east-1.amazonaws.com/534322619540/finance-training-done';
 
 if (!process.env.AWS_KEY || !process.env.AWS_SECRET) throw new Error('No Aws Credentials');
 AWS.config.update({
@@ -80,9 +82,34 @@ const sendMessage = payload => {
   return sqs
     .sendMessage({
       MessageBody: JSON.stringify(payload),
-      QueueUrl: 'https://sqs.us-east-1.amazonaws.com/534322619540/finance-training'
+      QueueUrl: sqsTrainingUrl
     })
     .promise();
+};
+
+const receiveMessage = () => {
+  return sqs
+    .receiveMessage({
+      QueueUrl: sqsDoneUrl,
+      MaxNumberOfMessages: 10
+    })
+    .promise()
+    .then(data => {
+      if (data.Messages) {
+        const deleteParams = {
+          QueueUrl: sqsDoneUrl,
+          Entries: data.Messages.map((m, i) => ({ Id: `${i}`, ReceiptHandle: m.ReceiptHandle }))
+        };
+        return sqs
+          .deleteMessageBatch(deleteParams)
+          .promise()
+          .then(() => data.Messages.map(m => JSON.parse(m.Body)));
+      } else return null;
+    })
+    .catch(err => {
+      console.error(err);
+      throw err;
+    });
 };
 
 const getTreeObjectKeys = async continuationToken => {
@@ -121,9 +148,47 @@ const downloadTrees = async () => {
   }
 };
 
+const getProdTreeObjectKeys = async continuationToken => {
+  const params = {
+    Bucket: bucketName,
+    Prefix: 'trees/foldproduction'
+  };
+  if (continuationToken) params.ContinuationToken = continuationToken;
+  const data = await s3.listObjectsV2(params).promise();
+  if (data.IsTruncated) {
+    const otherData = await getTreeObjectKeys(data.NextContinuationToken);
+    return [...data.Contents, ...otherData];
+  } else {
+    return data.Contents;
+  }
+};
+
+const downloadProdForest = async () => {
+  try {
+    const objectKeys = await getProdTreeObjectKeys();
+    logger.progress('trees', objectKeys.length, 'Fetching Trees');
+    const promises = objectKeys.map(async k => {
+      const params = {
+        Bucket: bucketName,
+        Key: k.Key
+      };
+      const file = await s3.getObject(params).promise();
+      const treeData = JSON.parse(file.Body.toString());
+      logger.progress('trees').tick(1);
+      return { ...treeData, tree: eval(treeData.tree) };
+    });
+    return Promise.all(promises);
+  } catch (err) {
+    console.log(err);
+    throw err;
+  }
+};
+
 module.exports = {
   getData,
   uploadData,
   sendMessage,
-  downloadTrees
+  downloadTrees,
+  receiveMessage,
+  downloadProdForest
 };
