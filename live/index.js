@@ -53,24 +53,26 @@ const money = {
   CUR: 0
 };
 let previousAction = 'NOTHING';
-const simulateTransaction = (action, realPrice) => {
+const simulateTransaction = (action, t) => {
   const fees = 0.001 + 0.0005; // buy/sell fees and quick sell/buy
   let buyAmount = 0.1;
   let sellAmount = 0.1;
-  if (action === 'BUY' && money.USD > 0) {
+  const overSold = t.RSI9 < 40 && (t.RSI9 < t.RSI14 && t.RSI14 < t.RSI50);
+  const overBought = t.RSI9 > 60 && (t.RSI9 > t.RSI14 && t.RSI14 > t.RSI50);
+  if (action === 'BUY' && money.USD > 0 && overSold) {
     if (previousAction === 'BUY' && buyAmount <= 0.5) buyAmount += 0.1;
     else buyAmount = 0.1;
-    money.CUR += (money.USD * buyAmount) / (realPrice + realPrice * fees); // I add a little to buy it fast
+    money.CUR += (money.USD * buyAmount) / (t.realPrice + t.realPrice * fees); // I add a little to buy it fast
     money.USD -= money.USD * buyAmount;
   }
-  if (action === 'SELL') {
+  if (action === 'SELL' && overBought) {
     if (previousAction === 'SELL' && sellAmount <= 0.5) sellAmount += 0.1;
     else sellAmount = 0.1;
-    money.USD += money.CUR * sellAmount * (realPrice - realPrice * fees);
+    money.USD += money.CUR * sellAmount * (t.realPrice - t.realPrice * fees);
     money.CUR -= money.CUR * sellAmount;
   }
   previousAction = action;
-  console.log(money.USD + money.CUR * realPrice);
+  console.log(money.USD + money.CUR * t.realPrice);
 };
 
 const liveTest = async () => {
@@ -95,7 +97,7 @@ const liveTest = async () => {
       currentTrades = [...currentTrades, ...pricesPerTimestep];
       currentTrades = arima.calculateFeatures(currentTrades).data.slice(-10080); // doesnt calculate expectedAction
       const action = classifyTrade(currentTrades[currentTrades.length - 1]);
-      simulateTransaction(action, currentTrades[currentTrades.length - 1].realPrice);
+      simulateTransaction(action, currentTrades[currentTrades.length - 1]);
       newTimestep.volume = 0;
       execute = false;
     }
