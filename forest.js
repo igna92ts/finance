@@ -3,6 +3,7 @@ const Random = require('random-js'),
   memoize = require('fast-memoize'),
   request = require('request'),
   logger = require('./logger'),
+  { FOREST_SIZE } = require('./helpers'),
   aws = require('./amazon');
 
 const pickRandomElement = array => Random.pick(mt, array);
@@ -45,7 +46,7 @@ const buildTree = (features, fold, count) => {
 
 const buildForest = (features, fold) => {
   const forestPromises = [];
-  const forestSize = 1024;
+  const forestSize = FOREST_SIZE;
   logger.progress(`forest-${fold}`, forestSize, `Fold #${fold}`);
   for (let i = 0; i < forestSize; i++) {
     const tree = buildTree(features, fold, i);

@@ -1,9 +1,10 @@
 const moment = require('moment'),
   binance = require('../binance'),
   arima = require('../arima'),
+  logger = require('../logger'),
   aws = require('../amazon/index'),
   rndForest = require('../forest'),
-  { roundTime } = require('../helpers');
+  { roundTime, FOREST_SIZE, RETRAIN_TIME } = require('../helpers');
 
 const timeout = () => {
   return new Promise((resolve, reject) => {
@@ -35,12 +36,16 @@ const buildClassifier = async () => {
   await aws.uploadData(trainData.slice(-10080), `data-fold-production`);
   await rndForest.buildForest(features, 'production');
   const sqsResponses = [];
-  while (sqsResponses.length < 1024) {
+  logger.progress(`production`, FOREST_SIZE, `Finished trees`);
+  while (sqsResponses.length < FOREST_SIZE) {
     /* eslint-disable no-await-in-loop */
     const msgs = await aws.receiveMessage();
     if (msgs) {
       msgs.forEach(m => {
-        if (!sqsResponses.some(e => e === m.number)) sqsResponses.push(m.number);
+        if (!sqsResponses.some(e => e === m.number)) {
+          logger.progress(`production`).tick(1);
+          sqsResponses.push(m.number);
+        }
       });
     } else await timeout();
   }
@@ -76,7 +81,7 @@ const simulateTransaction = (action, t) => {
 };
 
 const liveTest = async () => {
-  const classifyTrade = await buildClassifier();
+  let classifyTrade = await buildClassifier();
   let currentTrades = await arima.fetchTrades();
   const lastTrade = currentTrades[currentTrades.length - 1];
   const newTimestep = { volume: 0, price: lastTrade.realPrice, time: lastTrade.time };
@@ -86,6 +91,13 @@ const liveTest = async () => {
     newTimestep.price = trade.price;
     newTimestep.time = trade.time;
   });
+  // set timeout is here so that it wait for the initial RETRAIN_TIME to expire before retraining
+  setTimeout(() => {
+    setInterval(async () => {
+      classifyTrade = await buildClassifier();
+      console.log('SWAPPED FOREST');
+    }, RETRAIN_TIME);
+  }, RETRAIN_TIME);
   setInterval(() => {
     const secs = new Date().getSeconds();
     if (secs === 0 && execute) {
