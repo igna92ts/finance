@@ -379,6 +379,7 @@ const changeTime = trades => {
 };
 
 const calculateFeatures = tradeData => {
+  // AGREGAR LO MISMO EN BITCOIN Y ETHEREUM
   const featureFunctions = [
     [exponentialSmoothing, 'price'],
     [stochasticOscillator, 9, 'STO9'],

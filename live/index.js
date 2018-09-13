@@ -81,7 +81,7 @@ const simulateTransaction = (action, t) => {
 };
 
 const liveTest = async () => {
-  let classifyTrade = await buildClassifier();
+  const classifyTrade = await buildClassifier();
   let currentTrades = await arima.fetchTrades();
   const lastTrade = currentTrades[currentTrades.length - 1];
   const newTimestep = { volume: 0, price: lastTrade.realPrice, time: lastTrade.time };
@@ -92,13 +92,15 @@ const liveTest = async () => {
     newTimestep.time = trade.time;
   });
   // set timeout is here so that it wait for the initial RETRAIN_TIME to expire before retraining
+  let liveInterval = null;
   setTimeout(() => {
-    setInterval(async () => {
-      classifyTrade = await buildClassifier();
-      console.log('SWAPPED FOREST');
-    }, RETRAIN_TIME);
+    clearInterval(liveInterval);
+    // setInterval(async () => {
+    //   // classifyTrade = await buildClassifier();
+    //   console.log('SWAPPED FOREST');
+    // }, RETRAIN_TIME);
   }, RETRAIN_TIME);
-  setInterval(() => {
+  liveInterval = setInterval(() => {
     const secs = new Date().getSeconds();
     if (secs === 0 && execute) {
       if (newTimestep.time < currentTrades[currentTrades.length - 1].time + 60000) {

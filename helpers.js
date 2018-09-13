@@ -96,7 +96,7 @@ const profile = (foo, note) => {
 };
 
 const FOREST_SIZE = 1024;
-const RETRAIN_TIME = 4 * 60 * 60 * 1000;
+const RETRAIN_TIME = 2 * 60 * 60 * 1000;
 
 module.exports = {
   RETRAIN_TIME,
