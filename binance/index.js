@@ -92,13 +92,16 @@ exports.fetchTrades = (amount, accumulator = [], endTime = 0) => {
       },
       (err, res, body) => {
         // cambiar por ultimas 24 horas
-        logger.progress('trades').tick(body.length);
         return resolve(
           exports.fetchBTCPrice().then(btcPrice => {
             const reversed = body.reverse();
             const merged = [...accumulator, ...reversed.map(t => formatTransaction(t, btcPrice))];
+            const start = merged[0].time;
+            const end = merged[merged.length - 1].time;
+            const difference = moment.duration(moment(start).diff(moment(end))).asMinutes();
+            logger.progress('trades').tick(difference - logger.progress('trades').curr());
             if (err) return reject(err);
-            else if (merged.length < amount)
+            else if (difference < amount)
               return exports.fetchTrades(amount, merged, reversed[reversed.length - 1].T);
             else {
               return merged.reverse();

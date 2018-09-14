@@ -61,7 +61,7 @@ const fillTrades = async historicalTrades => {
   return fillPricesPerTimestep(historicalTrades, finishTime, missingTrades);
 };
 
-const BASE_FETCH_AMOUNT = 100000;
+const BASE_FETCH_TIME = 10080;
 const MAX_TRADES = 43200; // 2 days in minutes
 const fetchTrades = async () => {
   const existingTradeData = await aws.getData();
@@ -69,7 +69,7 @@ const fetchTrades = async () => {
     existingTradeData.length === 0 ||
     diffTimes(moment().valueOf(), existingTradeData[existingTradeData.length - 1].time) > 2880 // amount of minutes in 2 days
   ) {
-    const historicalTrades = await binance.fetchTrades(BASE_FETCH_AMOUNT);
+    const historicalTrades = await binance.fetchTrades(BASE_FETCH_TIME);
     return getPricesPerTimestep(historicalTrades);
   } else {
     const spinner = logger.spinner('Filling missing Transactions').start();

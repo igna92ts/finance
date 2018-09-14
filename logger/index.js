@@ -45,7 +45,8 @@ logger.progress = (key, total, message = '') => {
     });
   }
   return {
-    tick: count => progressBars[key].tick(count)
+    tick: count => progressBars[key].tick(count),
+    curr: () => progressBars[key].curr
   };
 };
 
