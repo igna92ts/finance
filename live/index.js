@@ -30,7 +30,7 @@ const classify = (forest, trade) => {
 };
 
 const buildClassifier = async () => {
-  const tradeData = await arima.fetchTrades();
+  const tradeData = await arima.fetchTrades('data-fold-production');
   const { data, features } = arima.calculateFeatures(tradeData);
   const trainData = arima.expectedAction(data);
   await aws.uploadData(trainData.slice(-10080), `data-fold-production`);
@@ -82,7 +82,7 @@ const simulateTransaction = (action, t) => {
 
 const liveTest = async () => {
   const classifyTrade = await buildClassifier();
-  let currentTrades = await arima.fetchTrades();
+  let currentTrades = await arima.fetchTrades('data-fold-production');
   const lastTrade = currentTrades[currentTrades.length - 1];
   const newTimestep = { volume: 0, price: lastTrade.realPrice, time: lastTrade.time };
   let execute = true;
